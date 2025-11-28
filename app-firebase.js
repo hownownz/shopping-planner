@@ -583,6 +583,18 @@ class App {
         document.getElementById('new-ingredient-input').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') this.addIngredientMapping();
         });
+
+        // Bulk mode toggle
+        document.getElementById('toggle-bulk-mode-btn').addEventListener('click', () => this.toggleBulkMode());
+        document.getElementById('cancel-bulk-mode-btn').addEventListener('click', () => this.toggleBulkMode());
+        document.getElementById('save-bulk-ingredients-btn').addEventListener('click', () => this.saveBulkIngredients());
+
+        // Export/Import
+        document.getElementById('export-ingredients-btn').addEventListener('click', () => this.exportIngredients());
+        document.getElementById('import-ingredients-btn').addEventListener('click', () => {
+            document.getElementById('import-ingredients-file').click();
+        });
+        document.getElementById('import-ingredients-file').addEventListener('change', (e) => this.importIngredients(e));
     }
 
     switchView(view) {
@@ -1212,6 +1224,163 @@ class App {
         if (this.currentView === 'shopping') {
             this.renderShoppingList();
         }
+    }
+
+    toggleBulkMode() {
+        const singleMode = document.getElementById('single-mode-section');
+        const bulkMode = document.getElementById('bulk-mode-section');
+        const toggleBtn = document.getElementById('toggle-bulk-mode-btn');
+
+        if (bulkMode.style.display === 'none') {
+            // Switch to bulk mode
+            singleMode.style.display = 'none';
+            bulkMode.style.display = 'block';
+            toggleBtn.textContent = '📋 Switch to Single Add';
+
+            // Populate textarea with current mappings
+            const mappings = this.store.getIngredientMappings();
+            const bulkText = mappings
+                .sort((a, b) => a.ingredient.localeCompare(b.ingredient))
+                .map(({ ingredient, category }) => `${ingredient} | ${category}`)
+                .join('\n');
+            document.getElementById('bulk-ingredients-textarea').value = bulkText;
+        } else {
+            // Switch back to single mode
+            bulkMode.style.display = 'none';
+            singleMode.style.display = 'block';
+            toggleBtn.textContent = '📝 Switch to Bulk Edit';
+        }
+    }
+
+    async saveBulkIngredients() {
+        const textarea = document.getElementById('bulk-ingredients-textarea');
+        const lines = textarea.value.split('\n').filter(line => line.trim());
+
+        const newMappings = {};
+        const errors = [];
+
+        lines.forEach((line, index) => {
+            const parts = line.split('|').map(p => p.trim());
+            if (parts.length !== 2) {
+                errors.push(`Line ${index + 1}: Invalid format (should be "ingredient | category")`);
+                return;
+            }
+
+            const [ingredient, category] = parts;
+            if (!ingredient || !category) {
+                errors.push(`Line ${index + 1}: Missing ingredient or category`);
+                return;
+            }
+
+            newMappings[ingredient.toLowerCase()] = category;
+        });
+
+        if (errors.length > 0) {
+            alert('Errors found:\n\n' + errors.join('\n'));
+            return;
+        }
+
+        // Confirm replacement
+        const currentCount = Object.keys(this.store.ingredientMappings).length;
+        const newCount = Object.keys(newMappings).length;
+
+        if (!confirm(`Replace ${currentCount} existing mappings with ${newCount} new mappings?\n\nThis will:\n- Remove all current mappings\n- Add the mappings from the textarea\n- Update your shopping list`)) {
+            return;
+        }
+
+        // Replace all mappings
+        this.store.ingredientMappings = newMappings;
+        await this.store.save('ingredientMappings', this.store.ingredientMappings);
+        await this.store.updateShoppingList();
+
+        // Switch back to single mode
+        this.toggleBulkMode();
+        this.renderIngredientMappings();
+
+        if (this.currentView === 'shopping') {
+            this.renderShoppingList();
+        }
+
+        alert(`Successfully saved ${newCount} ingredient mappings!`);
+    }
+
+    exportIngredients() {
+        const mappings = this.store.ingredientMappings;
+        const data = {
+            ingredientMappings: mappings,
+            exportDate: new Date().toISOString(),
+            count: Object.keys(mappings).length
+        };
+
+        // Create downloadable JSON file
+        const dataStr = JSON.stringify(data, null, 2);
+        const dataBlob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(dataBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `ingredient-mappings-${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        alert(`Exported ${Object.keys(mappings).length} ingredient mappings!`);
+    }
+
+    async importIngredients(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                const data = JSON.parse(e.target.result);
+
+                if (!data.ingredientMappings || typeof data.ingredientMappings !== 'object') {
+                    alert('Invalid file format. Expected a JSON file with "ingredientMappings" field.');
+                    return;
+                }
+
+                const newMappings = data.ingredientMappings;
+                const currentCount = Object.keys(this.store.ingredientMappings).length;
+                const newCount = Object.keys(newMappings).length;
+
+                const action = confirm(
+                    `Found ${newCount} ingredient mappings in file.\n\n` +
+                    `Current mappings: ${currentCount}\n\n` +
+                    `Choose:\n` +
+                    `OK = Replace all existing mappings\n` +
+                    `Cancel = Merge (keep existing, add new)`
+                );
+
+                if (action) {
+                    // Replace all
+                    this.store.ingredientMappings = newMappings;
+                } else {
+                    // Merge
+                    this.store.ingredientMappings = { ...this.store.ingredientMappings, ...newMappings };
+                }
+
+                await this.store.save('ingredientMappings', this.store.ingredientMappings);
+                await this.store.updateShoppingList();
+
+                this.renderIngredientMappings();
+                if (this.currentView === 'shopping') {
+                    this.renderShoppingList();
+                }
+
+                const finalCount = Object.keys(this.store.ingredientMappings).length;
+                alert(`Successfully imported! Total mappings: ${finalCount}`);
+
+            } catch (error) {
+                alert('Error reading file: ' + error.message);
+            }
+        };
+
+        reader.readAsText(file);
+
+        // Reset file input so same file can be imported again
+        event.target.value = '';
     }
 }
 

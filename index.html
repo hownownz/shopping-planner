@@ -174,7 +174,7 @@
 
     <!-- Modal for managing ingredient categories -->
     <div class="modal" id="ingredients-modal">
-        <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-content" style="max-width: 700px;">
             <div class="modal-header">
                 <h2>Manage Ingredient Categories</h2>
                 <button class="close-btn" id="close-ingredients-modal">&times;</button>
@@ -182,40 +182,65 @@
             <div class="modal-body">
                 <p style="margin-bottom: 15px; color: #666;">Set the aisle category for each ingredient to ensure items appear in the correct section of your shopping list.</p>
 
-                <div style="margin-bottom: 15px;">
-                    <label>Add New Ingredient Mapping</label>
-                    <div style="display: flex; gap: 10px; margin-top: 5px;">
-                        <input type="text" id="new-ingredient-input" placeholder="Ingredient name" style="flex: 1;">
-                        <select id="new-ingredient-category" style="flex: 1;">
-                            <option value="">Select aisle...</option>
-                            <option value="Fruit/Veg">Fruit/Veg</option>
-                            <option value="Meat/Chilled">Meat/Chilled</option>
-                            <option value="Pet Things">Pet Things</option>
-                            <option value="Chips">Chips</option>
-                            <option value="Coffee/Drinks/Tea">Coffee/Drinks/Tea</option>
-                            <option value="Breakfast/Condiments">Breakfast/Condiments</option>
-                            <option value="Baking/Choc Sauce/Dried Fruits">Baking/Choc/Dried Fruits</option>
-                            <option value="Bars/Chips/Pretzels/Popcorn">Bars/Snacks</option>
-                            <option value="Canned/Seasoning/Sauces">Canned/Seasoning/Sauces</option>
-                            <option value="Pasta/Noodles/Stock/Sauces/Tacos/Rice">Pasta/Rice/Noodles</option>
-                            <option value="Paper Towels/Nappy Things/TP">Paper/Nappy/TP</option>
-                            <option value="Biscuits/Crackers">Biscuits/Crackers</option>
-                            <option value="Cleaning/Washing products">Cleaning Products</option>
-                            <option value="Frozen">Frozen</option>
-                            <option value="Bread/Buns">Bread/Buns</option>
-                            <option value="Womens Products/Shampoo/Soap/Oral">Personal Care</option>
-                            <option value="Misc">Misc</option>
-                        </select>
-                        <button class="btn-primary" id="add-ingredient-mapping-btn">Add</button>
+                <!-- Mode Toggle -->
+                <div style="margin-bottom: 15px; display: flex; gap: 10px;">
+                    <button class="btn-secondary" id="toggle-bulk-mode-btn" style="flex: 1;">📝 Switch to Bulk Edit</button>
+                    <button class="btn-secondary" id="export-ingredients-btn" style="flex: 1;">💾 Export</button>
+                    <button class="btn-secondary" id="import-ingredients-btn" style="flex: 1;">📤 Import</button>
+                </div>
+
+                <!-- Single Add Mode (default) -->
+                <div id="single-mode-section">
+                    <div style="margin-bottom: 15px;">
+                        <label>Add New Ingredient Mapping</label>
+                        <div style="display: flex; gap: 10px; margin-top: 5px;">
+                            <input type="text" id="new-ingredient-input" placeholder="Ingredient name" style="flex: 1;">
+                            <select id="new-ingredient-category" style="flex: 1;">
+                                <option value="">Select aisle...</option>
+                                <option value="Fruit/Veg">Fruit/Veg</option>
+                                <option value="Meat/Chilled">Meat/Chilled</option>
+                                <option value="Pet Things">Pet Things</option>
+                                <option value="Chips">Chips</option>
+                                <option value="Coffee/Drinks/Tea">Coffee/Drinks/Tea</option>
+                                <option value="Breakfast/Condiments">Breakfast/Condiments</option>
+                                <option value="Baking/Choc Sauce/Dried Fruits">Baking/Choc/Dried Fruits</option>
+                                <option value="Bars/Chips/Pretzels/Popcorn">Bars/Snacks</option>
+                                <option value="Canned/Seasoning/Sauces">Canned/Seasoning/Sauces</option>
+                                <option value="Pasta/Noodles/Stock/Sauces/Tacos/Rice">Pasta/Rice/Noodles</option>
+                                <option value="Paper Towels/Nappy Things/TP">Paper/Nappy/TP</option>
+                                <option value="Biscuits/Crackers">Biscuits/Crackers</option>
+                                <option value="Cleaning/Washing products">Cleaning Products</option>
+                                <option value="Frozen">Frozen</option>
+                                <option value="Bread/Buns">Bread/Buns</option>
+                                <option value="Womens Products/Shampoo/Soap/Oral">Personal Care</option>
+                                <option value="Misc">Misc</option>
+                            </select>
+                            <button class="btn-primary" id="add-ingredient-mapping-btn">Add</button>
+                        </div>
+                    </div>
+
+                    <label>Current Ingredient Mappings</label>
+                    <div id="ingredient-mappings-list" style="max-height: 400px; overflow-y: auto; border: 1px solid #ddd; border-radius: 5px; padding: 10px; background: #f9f9f9;">
+                        <!-- List will be populated by JS -->
                     </div>
                 </div>
 
-                <label>Current Ingredient Mappings</label>
-                <div id="ingredient-mappings-list" style="max-height: 400px; overflow-y: auto; border: 1px solid #ddd; border-radius: 5px; padding: 10px; background: #f9f9f9;">
-                    <!-- List will be populated by JS -->
+                <!-- Bulk Edit Mode (hidden by default) -->
+                <div id="bulk-mode-section" style="display: none;">
+                    <p style="margin-bottom: 10px; color: #666; font-size: 14px;">
+                        Edit mappings in bulk. Format: <code>ingredient | category</code> (one per line)
+                    </p>
+                    <textarea id="bulk-ingredients-textarea" rows="20" style="width: 100%; font-family: monospace; font-size: 13px;" placeholder="apple | Fruit/Veg&#10;banana | Fruit/Veg&#10;chicken | Meat/Chilled&#10;pasta | Pasta/Rice/Noodles"></textarea>
+                    <div style="margin-top: 10px; display: flex; gap: 10px;">
+                        <button class="btn-primary" id="save-bulk-ingredients-btn" style="flex: 1;">Save All Changes</button>
+                        <button class="btn-secondary" id="cancel-bulk-mode-btn" style="flex: 1;">Cancel</button>
+                    </div>
                 </div>
 
-                <div class="modal-actions">
+                <!-- Hidden file input for import -->
+                <input type="file" id="import-ingredients-file" accept=".json" style="display: none;">
+
+                <div class="modal-actions" style="margin-top: 15px;">
                     <button class="btn-secondary" id="close-ingredients-btn">Close</button>
                 </div>
             </div>

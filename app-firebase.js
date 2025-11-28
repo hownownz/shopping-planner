@@ -253,17 +253,24 @@ class DataStore {
 
     deduplicateItems(items) {
         const itemMap = new Map();
-        
+
         items.forEach(item => {
             const key = item.text.toLowerCase().trim();
             if (itemMap.has(key)) {
                 const existing = itemMap.get(key);
+                // Increment count for duplicate items from meals
+                if (item.source === 'meal') {
+                    existing.count = (existing.count || 1) + 1;
+                }
                 // Keep the item that's not checked, or the first one if both same status
                 if (!existing.checked && item.checked) {
                     return; // Keep existing
                 }
+            } else {
+                // First occurrence - set initial count
+                item.count = 1;
+                itemMap.set(key, item);
             }
-            itemMap.set(key, item);
         });
 
         return Array.from(itemMap.values());
@@ -730,7 +737,10 @@ class App {
                             ${items.map(item => `
                                 <div class="shopping-item ${item.checked ? 'checked' : ''}" data-text="${item.text}" data-category="${item.category}">
                                     <div class="item-checkbox"></div>
-                                    <div class="item-text">${item.text}</div>
+                                    <div class="item-text">
+                                        ${item.text}
+                                        ${item.count > 1 ? `<span class="item-count">×${item.count}</span>` : ''}
+                                    </div>
                                     <button class="item-categorize" data-text="${item.text}" title="Change category">🏷️</button>
                                     <button class="item-remove" data-text="${item.text}">×</button>
                                 </div>

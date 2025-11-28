@@ -393,6 +393,32 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    cursor: grab;
+    transition: all 0.2s ease;
+}
+
+.database-item:active {
+    cursor: grabbing;
+}
+
+.database-item.dragging {
+    opacity: 0.5;
+    transform: scale(0.95);
+    cursor: grabbing;
+}
+
+.drag-handle {
+    font-size: 20px;
+    color: var(--text-secondary);
+    margin-right: 12px;
+    cursor: grab;
+    user-select: none;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+}
+
+.database-item:hover .drag-handle {
+    opacity: 1;
 }
 
 .database-item-info h3 {

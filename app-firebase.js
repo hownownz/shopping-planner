@@ -159,9 +159,14 @@ class DataStore {
     // Meal methods
     async addMeal(meal) {
         meal.id = Date.now().toString();
+        // Set sortOrder to highest + 1 (add to end)
+        const maxOrder = this.meals.length > 0
+            ? Math.max(...this.meals.map(m => m.sortOrder || 0))
+            : 0;
+        meal.sortOrder = maxOrder + 1;
         this.meals.push(meal);
         await this.save('meals', this.meals);
-        
+
         if (this.syncEnabled) {
             await firebaseService.saveMeal(meal);
         }
@@ -367,10 +372,53 @@ class DataStore {
     async deleteCategory(id) {
         this.categories = this.categories.filter(c => c.id !== id);
         await this.save('categories', this.categories);
-        
+
         if (this.syncEnabled) {
             await firebaseService.deleteCategory(id);
         }
+    }
+
+    // Meal ordering methods
+    async reorderMeals(fromIndex, toIndex) {
+        // Move meal from one position to another
+        const meal = this.meals[fromIndex];
+        this.meals.splice(fromIndex, 1);
+        this.meals.splice(toIndex, 0, meal);
+
+        // Update sortOrder for all meals
+        this.meals.forEach((m, index) => {
+            m.sortOrder = index;
+        });
+
+        await this.save('meals', this.meals);
+
+        if (this.syncEnabled) {
+            await firebaseService.saveMeals(this.meals);
+        }
+    }
+
+    async sortMealsAlphabetically() {
+        this.meals.sort((a, b) => a.name.localeCompare(b.name));
+        this.meals.forEach((m, index) => {
+            m.sortOrder = index;
+        });
+        await this.save('meals', this.meals);
+
+        if (this.syncEnabled) {
+            await firebaseService.saveMeals(this.meals);
+        }
+    }
+
+    getSortedMeals() {
+        // Ensure all meals have sortOrder (for backwards compatibility)
+        this.meals.forEach((meal, index) => {
+            if (meal.sortOrder === undefined) {
+                meal.sortOrder = index;
+            }
+        });
+
+        // Return sorted by sortOrder
+        return [...this.meals].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
     }
 }
 
@@ -460,6 +508,14 @@ class App {
         
         // Export data
         document.getElementById('export-data-btn').addEventListener('click', () => this.exportData());
+
+        // Sort meals alphabetically
+        document.getElementById('sort-alphabetically-btn').addEventListener('click', async () => {
+            if (confirm('Sort all meals alphabetically? This will change the current order.')) {
+                await this.store.sortMealsAlphabetically();
+                this.renderDatabase();
+            }
+        });
     }
 
     switchView(view) {
@@ -497,7 +553,8 @@ class App {
 
     renderMealsList(searchTerm = '') {
         const container = document.getElementById('meals-list');
-        const meals = this.store.meals.filter(meal => 
+        const sortedMeals = this.store.getSortedMeals();
+        const meals = sortedMeals.filter(meal =>
             searchTerm === '' || meal.name.toLowerCase().includes(searchTerm.toLowerCase())
         );
 
@@ -664,7 +721,7 @@ class App {
 
     renderDatabase() {
         const container = document.getElementById('database-list');
-        
+
         if (this.store.meals.length === 0) {
             container.innerHTML = `
                 <div class="empty-state">
@@ -675,8 +732,11 @@ class App {
             return;
         }
 
-        container.innerHTML = this.store.meals.map(meal => `
-            <div class="database-item">
+        const sortedMeals = this.store.getSortedMeals();
+
+        container.innerHTML = sortedMeals.map((meal, index) => `
+            <div class="database-item" draggable="true" data-id="${meal.id}" data-index="${index}">
+                <div class="drag-handle">⋮⋮</div>
                 <div class="database-item-info">
                     <h3>${meal.name}</h3>
                     <div class="database-item-ingredients">${meal.ingredients.slice(0, 3).join(', ')}${meal.ingredients.length > 3 ? '...' : ''}</div>
@@ -705,6 +765,62 @@ class App {
                 }
             });
         });
+
+        // Add drag-and-drop listeners
+        this.setupDragAndDrop(container);
+    }
+
+    setupDragAndDrop(container) {
+        let draggedElement = null;
+        let draggedIndex = null;
+
+        container.querySelectorAll('.database-item').forEach(item => {
+            item.addEventListener('dragstart', (e) => {
+                draggedElement = item;
+                draggedIndex = parseInt(item.dataset.index);
+                item.classList.add('dragging');
+                e.dataTransfer.effectAllowed = 'move';
+            });
+
+            item.addEventListener('dragend', () => {
+                item.classList.remove('dragging');
+                draggedElement = null;
+            });
+
+            item.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                const afterElement = this.getDragAfterElement(container, e.clientY);
+                if (afterElement == null) {
+                    container.appendChild(draggedElement);
+                } else {
+                    container.insertBefore(draggedElement, afterElement);
+                }
+            });
+
+            item.addEventListener('drop', async (e) => {
+                e.preventDefault();
+                const dropIndex = parseInt(item.dataset.index);
+                if (draggedIndex !== null && draggedIndex !== dropIndex) {
+                    await this.store.reorderMeals(draggedIndex, dropIndex);
+                    this.renderDatabase();
+                }
+            });
+        });
+    }
+
+    getDragAfterElement(container, y) {
+        const draggableElements = [...container.querySelectorAll('.database-item:not(.dragging)')];
+
+        return draggableElements.reduce((closest, child) => {
+            const box = child.getBoundingClientRect();
+            const offset = y - box.top - box.height / 2;
+
+            if (offset < 0 && offset > closest.offset) {
+                return { offset: offset, element: child };
+            } else {
+                return closest;
+            }
+        }, { offset: Number.NEGATIVE_INFINITY }).element;
     }
 
     openMealModal(mealId = null) {

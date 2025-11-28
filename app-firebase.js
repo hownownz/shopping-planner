@@ -731,7 +731,7 @@ class App {
                                 <div class="shopping-item ${item.checked ? 'checked' : ''}" data-text="${item.text}" data-category="${item.category}">
                                     <div class="item-checkbox"></div>
                                     <div class="item-text">${item.text}</div>
-                                    ${item.category === 'Misc' ? '<button class="item-categorize" data-text="' + item.text + '" title="Set category">🏷️</button>' : ''}
+                                    <button class="item-categorize" data-text="${item.text}" title="Change category">🏷️</button>
                                     <button class="item-remove" data-text="${item.text}">×</button>
                                 </div>
                             `).join('')}
@@ -792,7 +792,7 @@ class App {
         ];
 
         const categoryList = categories.map((cat, i) => `${i + 1}. ${cat}`).join('\n');
-        const response = prompt(`Categorize "${ingredient}"\n\nEnter the number for the category:\n\n${categoryList}\n\nOr type a custom category name:`);
+        const response = prompt(`Change category for "${ingredient}"\n\nCurrent: ${this.store.ingredientMappings[ingredient.toLowerCase()] || 'Not set'}\n\nEnter the number for the new category:\n\n${categoryList}\n\nOr type a custom category name:`);
 
         if (response) {
             const num = parseInt(response);
@@ -809,7 +809,7 @@ class App {
                 // Recategorize existing shopping list items
                 await this.store.updateShoppingList();
                 this.renderShoppingList();
-                alert(`"${ingredient}" will now be categorized as "${category}"`);
+                alert(`"${ingredient}" updated to "${category}"`);
             }
         }
     }

@@ -6,6 +6,9 @@
 *~
 .DS_Store
 
+# Claude Code
+.claude/
+
 # OS Files
 Thumbs.db
 ehthumbs.db

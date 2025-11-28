@@ -97,6 +97,7 @@
                 <h1>Meal Database</h1>
                 <div class="header-actions">
                     <button class="btn-secondary" id="sort-alphabetically-btn">Sort A-Z</button>
+                    <button class="btn-secondary" id="manage-ingredients-btn">Manage Ingredients</button>
                     <button class="btn-secondary" id="export-data-btn">Export</button>
                     <button class="btn-primary" id="add-meal-btn">+ Add Meal</button>
                 </div>
@@ -137,10 +138,10 @@
             <div class="modal-body">
                 <label>Category Name</label>
                 <input type="text" id="category-name-input" placeholder="e.g., Kids Food">
-                
+
                 <label>Items (one per line)</label>
                 <textarea id="category-items-input" rows="10" placeholder="e.g.,&#10;Weetbix&#10;Up n Go 12pack&#10;Pouches (yogurt etc)"></textarea>
-                
+
                 <label>Aisle Category</label>
                 <select id="category-aisle-select">
                     <option value="Fruit/Veg">Fruit/Veg</option>
@@ -161,11 +162,61 @@
                     <option value="Womens Products/Shampoo/Soap/Oral">Personal Care</option>
                     <option value="Misc">Misc</option>
                 </select>
-                
+
                 <div class="modal-actions">
                     <button class="btn-secondary" id="cancel-category-btn">Cancel</button>
                     <button class="btn-danger" id="delete-category-btn" style="display: none;">Delete</button>
                     <button class="btn-primary" id="save-category-btn">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for managing ingredient categories -->
+    <div class="modal" id="ingredients-modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2>Manage Ingredient Categories</h2>
+                <button class="close-btn" id="close-ingredients-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 15px; color: #666;">Set the aisle category for each ingredient to ensure items appear in the correct section of your shopping list.</p>
+
+                <div style="margin-bottom: 15px;">
+                    <label>Add New Ingredient Mapping</label>
+                    <div style="display: flex; gap: 10px; margin-top: 5px;">
+                        <input type="text" id="new-ingredient-input" placeholder="Ingredient name" style="flex: 1;">
+                        <select id="new-ingredient-category" style="flex: 1;">
+                            <option value="">Select aisle...</option>
+                            <option value="Fruit/Veg">Fruit/Veg</option>
+                            <option value="Meat/Chilled">Meat/Chilled</option>
+                            <option value="Pet Things">Pet Things</option>
+                            <option value="Chips">Chips</option>
+                            <option value="Coffee/Drinks/Tea">Coffee/Drinks/Tea</option>
+                            <option value="Breakfast/Condiments">Breakfast/Condiments</option>
+                            <option value="Baking/Choc Sauce/Dried Fruits">Baking/Choc/Dried Fruits</option>
+                            <option value="Bars/Chips/Pretzels/Popcorn">Bars/Snacks</option>
+                            <option value="Canned/Seasoning/Sauces">Canned/Seasoning/Sauces</option>
+                            <option value="Pasta/Noodles/Stock/Sauces/Tacos/Rice">Pasta/Rice/Noodles</option>
+                            <option value="Paper Towels/Nappy Things/TP">Paper/Nappy/TP</option>
+                            <option value="Biscuits/Crackers">Biscuits/Crackers</option>
+                            <option value="Cleaning/Washing products">Cleaning Products</option>
+                            <option value="Frozen">Frozen</option>
+                            <option value="Bread/Buns">Bread/Buns</option>
+                            <option value="Womens Products/Shampoo/Soap/Oral">Personal Care</option>
+                            <option value="Misc">Misc</option>
+                        </select>
+                        <button class="btn-primary" id="add-ingredient-mapping-btn">Add</button>
+                    </div>
+                </div>
+
+                <label>Current Ingredient Mappings</label>
+                <div id="ingredient-mappings-list" style="max-height: 400px; overflow-y: auto; border: 1px solid #ddd; border-radius: 5px; padding: 10px; background: #f9f9f9;">
+                    <!-- List will be populated by JS -->
+                </div>
+
+                <div class="modal-actions">
+                    <button class="btn-secondary" id="close-ingredients-btn">Close</button>
                 </div>
             </div>
         </div>

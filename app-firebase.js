@@ -452,8 +452,8 @@ class DataStore {
             }
         });
 
-        // Sort alphabetically
-        this.meals.sort((a, b) => a.name.localeCompare(b.name));
+        // Sort alphabetically (case-insensitive)
+        this.meals.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
 
         // Reassign sortOrder based on new alphabetical position
         this.meals.forEach((m, index) => {
@@ -573,6 +573,15 @@ class App {
                 await this.store.sortMealsAlphabetically();
                 this.renderDatabase();
             }
+        });
+
+        // Manage ingredients
+        document.getElementById('manage-ingredients-btn').addEventListener('click', () => this.openIngredientsModal());
+        document.getElementById('close-ingredients-modal').addEventListener('click', () => this.closeIngredientsModal());
+        document.getElementById('close-ingredients-btn').addEventListener('click', () => this.closeIngredientsModal());
+        document.getElementById('add-ingredient-mapping-btn').addEventListener('click', () => this.addIngredientMapping());
+        document.getElementById('new-ingredient-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') this.addIngredientMapping();
         });
     }
 
@@ -1119,6 +1128,90 @@ class App {
         csvLink.click();
         document.body.removeChild(csvLink);
         URL.revokeObjectURL(csvUrl);
+    }
+
+    openIngredientsModal() {
+        const modal = document.getElementById('ingredients-modal');
+        modal.classList.add('active');
+        this.renderIngredientMappings();
+    }
+
+    closeIngredientsModal() {
+        const modal = document.getElementById('ingredients-modal');
+        modal.classList.remove('active');
+        document.getElementById('new-ingredient-input').value = '';
+        document.getElementById('new-ingredient-category').value = '';
+    }
+
+    renderIngredientMappings() {
+        const container = document.getElementById('ingredient-mappings-list');
+        const mappings = this.store.getIngredientMappings();
+
+        if (mappings.length === 0) {
+            container.innerHTML = '<p style="color: #999; text-align: center; padding: 20px;">No ingredient mappings yet. Add your first one above!</p>';
+            return;
+        }
+
+        // Sort mappings alphabetically by ingredient
+        mappings.sort((a, b) => a.ingredient.localeCompare(b.ingredient));
+
+        container.innerHTML = mappings.map(({ ingredient, category }) => `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; border-bottom: 1px solid #eee;">
+                <div style="flex: 1;">
+                    <strong>${ingredient}</strong>
+                    <span style="color: #666; margin-left: 10px;">→ ${category}</span>
+                </div>
+                <button class="icon-btn delete-mapping-btn" data-ingredient="${ingredient}" title="Delete mapping" style="color: #dc3545;">🗑️</button>
+            </div>
+        `).join('');
+
+        // Add delete listeners
+        container.querySelectorAll('.delete-mapping-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const ingredient = btn.dataset.ingredient;
+                if (confirm(`Remove category mapping for "${ingredient}"?`)) {
+                    await this.store.removeIngredientMapping(ingredient);
+                    await this.store.updateShoppingList();
+                    this.renderIngredientMappings();
+                    if (this.currentView === 'shopping') {
+                        this.renderShoppingList();
+                    }
+                }
+            });
+        });
+    }
+
+    async addIngredientMapping() {
+        const ingredientInput = document.getElementById('new-ingredient-input');
+        const categorySelect = document.getElementById('new-ingredient-category');
+
+        const ingredient = ingredientInput.value.trim();
+        const category = categorySelect.value;
+
+        if (!ingredient) {
+            alert('Please enter an ingredient name');
+            return;
+        }
+
+        if (!category) {
+            alert('Please select a category');
+            return;
+        }
+
+        await this.store.addIngredientMapping(ingredient, category);
+        await this.store.updateShoppingList();
+
+        // Clear inputs
+        ingredientInput.value = '';
+        categorySelect.value = '';
+
+        // Refresh the list
+        this.renderIngredientMappings();
+
+        // Update shopping list if visible
+        if (this.currentView === 'shopping') {
+            this.renderShoppingList();
+        }
     }
 }
 

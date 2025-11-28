@@ -227,6 +227,7 @@ class FirebaseService {
             batch.push(this.imports.setDoc(mealRef, {
                 name: meal.name,
                 ingredients: meal.ingredients,
+                sortOrder: meal.sortOrder || 0,
                 updatedAt: new Date().toISOString()
             }));
         }
@@ -249,6 +250,7 @@ class FirebaseService {
             await this.imports.setDoc(mealRef, {
                 name: meal.name,
                 ingredients: meal.ingredients,
+                sortOrder: meal.sortOrder || 0,
                 updatedAt: new Date().toISOString()
             });
             console.log('✅ Meal saved');

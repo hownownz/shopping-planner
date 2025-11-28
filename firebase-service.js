@@ -43,7 +43,21 @@ class FirebaseService {
                 orderBy
             };
 
-            // Listen for auth state changes
+            // Wait for initial auth state to be resolved
+            await new Promise((resolve) => {
+                const unsubscribe = onAuthStateChanged(this.auth, (user) => {
+                    this.currentUser = user;
+                    if (user) {
+                        this.setupRealtimeSync();
+                    } else {
+                        this.cleanupSync();
+                    }
+                    unsubscribe(); // Unsubscribe after first check
+                    resolve();
+                });
+            });
+
+            // Continue listening to auth state changes
             onAuthStateChanged(this.auth, (user) => {
                 this.currentUser = user;
                 if (user) {

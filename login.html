@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>Login - Meal Planner</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .login-container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .logo {
+            text-align: center;
+            font-size: 60px;
+            margin-bottom: 10px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #1e293b;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #64748b;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            color: #334155;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        input {
+            width: 100%;
+            padding: 14px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border-color 0.2s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            background: #5568d3;
+        }
+
+        button:disabled {
+            background: #94a3b8;
+            cursor: not-allowed;
+        }
+
+        .toggle-mode {
+            text-align: center;
+            margin-top: 20px;
+            color: #64748b;
+            font-size: 14px;
+        }
+
+        .toggle-mode a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .toggle-mode a:hover {
+            text-decoration: underline;
+        }
+
+        .error {
+            background: #fee;
+            color: #dc2626;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .error.show {
+            display: block;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            border: 3px solid #f3f4f6;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .info-box {
+            background: #dbeafe;
+            color: #1e40af;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="logo">🍽️</div>
+        <h1>Meal Planner</h1>
+        <p class="subtitle">Your personal meal planning assistant</p>
+
+        <div class="error" id="error-message"></div>
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p style="margin-top: 10px; color: #64748b;">Loading...</p>
+        </div>
+
+        <div id="login-form">
+            <div class="info-box" id="info-box" style="display: none;">
+                First time? Create your account to get started!
+            </div>
+
+            <form id="auth-form" onsubmit="handleSubmit(event)">
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input 
+                        type="email" 
+                        id="email" 
+                        required 
+                        autocomplete="email"
+                        placeholder="your@email.com"
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input 
+                        type="password" 
+                        id="password" 
+                        required 
+                        autocomplete="current-password"
+                        placeholder="••••••••"
+                        minlength="6"
+                    >
+                </div>
+
+                <button type="submit" id="submit-btn">Sign In</button>
+            </form>
+
+            <div class="toggle-mode">
+                <span id="mode-text">Don't have an account?</span>
+                <a href="#" onclick="toggleMode(event)" id="mode-link">Create Account</a>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import firebaseService from './firebase-service.js';
+
+        let isSignUpMode = false;
+
+        window.toggleMode = function(event) {
+            event.preventDefault();
+            isSignUpMode = !isSignUpMode;
+
+            const submitBtn = document.getElementById('submit-btn');
+            const modeText = document.getElementById('mode-text');
+            const modeLink = document.getElementById('mode-link');
+            const infoBox = document.getElementById('info-box');
+
+            if (isSignUpMode) {
+                submitBtn.textContent = 'Create Account';
+                modeText.textContent = 'Already have an account?';
+                modeLink.textContent = 'Sign In';
+                infoBox.style.display = 'block';
+            } else {
+                submitBtn.textContent = 'Sign In';
+                modeText.textContent = "Don't have an account?";
+                modeLink.textContent = 'Create Account';
+                infoBox.style.display = 'none';
+            }
+
+            hideError();
+        };
+
+        window.handleSubmit = async function(event) {
+            event.preventDefault();
+
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            showLoading();
+            hideError();
+
+            try {
+                let result;
+                if (isSignUpMode) {
+                    result = await firebaseService.signUp(email, password);
+                    if (result.success) {
+                        // Import localStorage data if it exists
+                        const localMeals = localStorage.getItem('meals');
+                        if (localMeals) {
+                            showInfo('Importing your existing data...');
+                            await firebaseService.migrateFromLocalStorage();
+                        }
+                    }
+                } else {
+                    result = await firebaseService.signIn(email, password);
+                }
+
+                if (result.success) {
+                    window.location.href = 'index.html';
+                } else {
+                    showError(result.error);
+                    hideLoading();
+                }
+            } catch (error) {
+                showError('An unexpected error occurred. Please try again.');
+                hideLoading();
+            }
+        };
+
+        function showLoading() {
+            document.getElementById('loading').classList.add('show');
+            document.getElementById('login-form').style.display = 'none';
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').classList.remove('show');
+            document.getElementById('login-form').style.display = 'block';
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error-message');
+            errorDiv.textContent = message;
+            errorDiv.classList.add('show');
+        }
+
+        function hideError() {
+            document.getElementById('error-message').classList.remove('show');
+        }
+
+        function showInfo(message) {
+            const infoBox = document.getElementById('info-box');
+            infoBox.textContent = message;
+            infoBox.style.display = 'block';
+        }
+
+        // Initialize Firebase and check if already logged in
+        (async () => {
+            showLoading();
+            try {
+                await firebaseService.initialize();
+                
+                // Check if already authenticated
+                if (firebaseService.isAuthenticated()) {
+                    window.location.href = 'index.html';
+                } else {
+                    hideLoading();
+                }
+            } catch (error) {
+                showError('Failed to connect. Please check your internet connection.');
+                hideLoading();
+            }
+        })();
+    </script>
+</body>
+</html>

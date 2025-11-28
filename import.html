@@ -116,6 +116,14 @@ Thai Green Curry | 400ml coconut milk, curry paste, chicken, vegetables"></texta
             <button class="btn-secondary" onclick="clearImport()">Clear</button>
             <button class="btn-secondary" onclick="window.location.href='index.html'">Back to App</button>
         </div>
+    </div>
+
+    <div class="card">
+        <h2>Import from Backup (JSON)</h2>
+        <p class="subtitle">Upload a backup file exported from the app</p>
+        
+        <input type="file" id="json-file" accept=".json" style="margin-bottom: 10px;">
+        <button class="btn-primary" onclick="importJSON()">Import Backup File</button>
 
         <div id="result"></div>
     </div>
@@ -206,6 +214,50 @@ Vegetable Stir Fry | 1 capsicum, 1 broccoli, 1 carrot, soy sauce, sesame oil, ga
         function clearImport() {
             document.getElementById('import-data').value = '';
             document.getElementById('result').innerHTML = '';
+        }
+
+        function importJSON() {
+            const fileInput = document.getElementById('json-file');
+            const resultDiv = document.getElementById('result');
+            
+            if (!fileInput.files || !fileInput.files[0]) {
+                resultDiv.innerHTML = '<div style="color: #dc2626; padding: 12px;">Please select a JSON file first!</div>';
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    
+                    if (data.meals && Array.isArray(data.meals)) {
+                        // Import meals
+                        localStorage.setItem('meals', JSON.stringify(data.meals));
+                        
+                        // Import categories if present
+                        if (data.categories && Array.isArray(data.categories)) {
+                            localStorage.setItem('categories', JSON.stringify(data.categories));
+                        }
+                        
+                        resultDiv.innerHTML = `
+                            <div class="success">
+                                <strong>✅ Backup Restored!</strong><br>
+                                Imported ${data.meals.length} meals<br>
+                                ${data.categories ? `Imported ${data.categories.length} categories<br>` : ''}
+                                <button class="btn-primary" onclick="window.location.href='index.html'">Go to App →</button>
+                            </div>
+                        `;
+                    } else {
+                        resultDiv.innerHTML = '<div style="color: #dc2626; padding: 12px;">Invalid backup file format!</div>';
+                    }
+                } catch (error) {
+                    resultDiv.innerHTML = `<div style="color: #dc2626; padding: 12px;">Error reading file: ${error.message}</div>`;
+                }
+            };
+
+            reader.readAsText(file);
         }
 
         // Check if there's existing data

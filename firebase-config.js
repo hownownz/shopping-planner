@@ -12,7 +12,7 @@ const firebaseConfig = {
   // App Check reCAPTCHA v3 Site Key
   // Get this from: Firebase Console → App Check → Apps → Web app → reCAPTCHA v3 site key
   // REPLACE WITH YOUR SITE KEY:
-  appCheckSiteKey: "Preamble6-Remix-Creative"
+  // appCheckSiteKey: "YOUR_RECAPTCHA_V3_SITE_KEY_HERE"  // Commented out until you add real key
 };
 
 // DO NOT EDIT BELOW THIS LINE

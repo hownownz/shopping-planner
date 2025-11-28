@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#2563eb">
+    <title>Meal Planner</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Navigation -->
+        <nav class="bottom-nav">
+            <button class="nav-btn active" data-view="meals">
+                <span class="nav-icon">🍽️</span>
+                <span class="nav-label">Meals</span>
+            </button>
+            <button class="nav-btn" data-view="shopping">
+                <span class="nav-icon">🛒</span>
+                <span class="nav-label">Shopping</span>
+            </button>
+            <button class="nav-btn" data-view="categories">
+                <span class="nav-icon">📦</span>
+                <span class="nav-label">Categories</span>
+            </button>
+            <button class="nav-btn" data-view="database">
+                <span class="nav-icon">📚</span>
+                <span class="nav-label">Database</span>
+            </button>
+        </nav>
+
+        <!-- Meal Selector View -->
+        <div class="view active" id="meals-view">
+            <div class="view-header">
+                <h1>Select Meals</h1>
+                <button class="btn-secondary" id="clear-meals-btn">Clear All</button>
+            </div>
+            <div class="search-box">
+                <input type="text" id="meal-search" placeholder="Search meals...">
+            </div>
+            <div id="meals-list" class="meals-list"></div>
+        </div>
+
+        <!-- Shopping List View -->
+        <div class="view" id="shopping-view">
+            <div class="view-header">
+                <h1>Shopping List</h1>
+                <div class="header-actions">
+                    <button class="btn-secondary" id="clear-checked-btn">Clear Checked</button>
+                    <button class="btn-secondary" id="clear-list-btn">Clear All</button>
+                </div>
+            </div>
+            
+            <div class="add-manual-item">
+                <input type="text" id="manual-item-input" placeholder="Add item manually...">
+                <select id="manual-item-category">
+                    <option value="Fruit/Veg">Fruit/Veg</option>
+                    <option value="Meat/Chilled">Meat/Chilled</option>
+                    <option value="Pet Things">Pet Things</option>
+                    <option value="Chips">Chips</option>
+                    <option value="Coffee/Drinks/Tea">Coffee/Drinks/Tea</option>
+                    <option value="Breakfast/Condiments">Breakfast/Condiments</option>
+                    <option value="Baking/Choc Sauce/Dried Fruits">Baking/Choc/Dried Fruits</option>
+                    <option value="Bars/Chips/Pretzels/Popcorn">Bars/Snacks</option>
+                    <option value="Canned/Seasoning/Sauces">Canned/Seasoning/Sauces</option>
+                    <option value="Pasta/Noodles/Stock/Sauces/Tacos/Rice">Pasta/Rice/Noodles</option>
+                    <option value="Paper Towels/Nappy Things/TP">Paper/Nappy/TP</option>
+                    <option value="Biscuits/Crackers">Biscuits/Crackers</option>
+                    <option value="Cleaning/Washing products">Cleaning Products</option>
+                    <option value="Frozen">Frozen</option>
+                    <option value="Bread/Buns">Bread/Buns</option>
+                    <option value="Womens Products/Shampoo/Soap/Oral">Personal Care</option>
+                    <option value="Misc">Misc</option>
+                </select>
+                <button class="btn-primary" id="add-manual-btn">Add</button>
+            </div>
+
+            <div id="shopping-list" class="shopping-list"></div>
+        </div>
+
+        <!-- Categories View -->
+        <div class="view" id="categories-view">
+            <div class="view-header">
+                <h1>Quick Add Categories</h1>
+                <button class="btn-secondary" id="manage-categories-btn">Manage</button>
+            </div>
+            <div id="categories-list" class="categories-list"></div>
+        </div>
+
+        <!-- Database View -->
+        <div class="view" id="database-view">
+            <div class="view-header">
+                <h1>Meal Database</h1>
+                <div class="header-actions">
+                    <button class="btn-secondary" id="export-data-btn">Export</button>
+                    <button class="btn-primary" id="add-meal-btn">+ Add Meal</button>
+                </div>
+            </div>
+            <div id="database-list" class="database-list"></div>
+        </div>
+    </div>
+
+    <!-- Modal for adding/editing meals -->
+    <div class="modal" id="meal-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modal-title">Add Meal</h2>
+                <button class="close-btn" id="close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <label>Meal Name</label>
+                <input type="text" id="meal-name-input" placeholder="e.g., Spaghetti Bolognese">
+                
+                <label>Ingredients (one per line)</label>
+                <textarea id="meal-ingredients-input" rows="10" placeholder="e.g.,&#10;500g beef mince&#10;1 onion&#10;2 cans tomatoes&#10;400g spaghetti"></textarea>
+                
+                <div class="modal-actions">
+                    <button class="btn-secondary" id="cancel-meal-btn">Cancel</button>
+                    <button class="btn-primary" id="save-meal-btn">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for managing categories -->
+    <div class="modal" id="category-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="category-modal-title">Manage Category</h2>
+                <button class="close-btn" id="close-category-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <label>Category Name</label>
+                <input type="text" id="category-name-input" placeholder="e.g., Kids Food">
+                
+                <label>Items (one per line)</label>
+                <textarea id="category-items-input" rows="10" placeholder="e.g.,&#10;Weetbix&#10;Up n Go 12pack&#10;Pouches (yogurt etc)"></textarea>
+                
+                <label>Aisle Category</label>
+                <select id="category-aisle-select">
+                    <option value="Fruit/Veg">Fruit/Veg</option>
+                    <option value="Meat/Chilled">Meat/Chilled</option>
+                    <option value="Pet Things">Pet Things</option>
+                    <option value="Chips">Chips</option>
+                    <option value="Coffee/Drinks/Tea">Coffee/Drinks/Tea</option>
+                    <option value="Breakfast/Condiments">Breakfast/Condiments</option>
+                    <option value="Baking/Choc Sauce/Dried Fruits">Baking/Choc/Dried Fruits</option>
+                    <option value="Bars/Chips/Pretzels/Popcorn">Bars/Snacks</option>
+                    <option value="Canned/Seasoning/Sauces">Canned/Seasoning/Sauces</option>
+                    <option value="Pasta/Noodles/Stock/Sauces/Tacos/Rice">Pasta/Rice/Noodles</option>
+                    <option value="Paper Towels/Nappy Things/TP">Paper/Nappy/TP</option>
+                    <option value="Biscuits/Crackers">Biscuits/Crackers</option>
+                    <option value="Cleaning/Washing products">Cleaning Products</option>
+                    <option value="Frozen">Frozen</option>
+                    <option value="Bread/Buns">Bread/Buns</option>
+                    <option value="Womens Products/Shampoo/Soap/Oral">Personal Care</option>
+                    <option value="Misc">Misc</option>
+                </select>
+                
+                <div class="modal-actions">
+                    <button class="btn-secondary" id="cancel-category-btn">Cancel</button>
+                    <button class="btn-danger" id="delete-category-btn" style="display: none;">Delete</button>
+                    <button class="btn-primary" id="save-category-btn">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

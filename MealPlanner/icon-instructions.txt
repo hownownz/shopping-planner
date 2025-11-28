@@ -1,0 +1,31 @@
+ICON SETUP INSTRUCTIONS
+========================
+
+For the app to work as a PWA on iPhone, you need icon files.
+
+OPTION 1 - Quick & Easy (Use an emoji):
+Go to this website: https://favicon.io/emoji-favicons/fork-and-knife/
+- Download the favicon package
+- Extract and rename:
+  - android-chrome-192x192.png → icon-192.png
+  - android-chrome-512x512.png → icon-512.png
+- Place both files in this folder
+
+OPTION 2 - Custom Icon:
+1. Create or find a square image (at least 512x512px)
+2. Use https://realfavicongenerator.net/ to generate all sizes
+3. Get the 192x192 and 512x512 versions
+4. Rename them to icon-192.png and icon-512.png
+5. Place in this folder
+
+OPTION 3 - Use these emojis as icons:
+🍽️ Fork and Knife
+🛒 Shopping Cart
+📋 Clipboard with List
+🥘 Pot of Food
+
+For now, the app will work fine without icons - you just won't have a pretty icon when you add it to your iPhone home screen.
+
+The icon files should be named:
+- icon-192.png (192x192 pixels)
+- icon-512.png (512x512 pixels)

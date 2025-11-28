@@ -25,6 +25,12 @@ Plan your meals, generate organized shopping lists by aisle, and sync seamlessly
 - Instant updates when data changes
 - Secure, private user authentication
 
+**🔒 Security & Privacy**
+- User data isolation (your data is private)
+- Firebase App Check protection (prevents abuse)
+- Server-side security rules (cannot be bypassed)
+- No data sharing between users
+
 **🛒 Smart Shopping Lists**
 - Automatically organized by store aisle
 - Check off items as you shop
@@ -60,6 +66,8 @@ Plan your meals, generate organized shopping lists by aisle, and sync seamlessly
 
 👉 **[Read the Complete Setup Guide](SETUP.md)** for step-by-step instructions
 
+🔒 **[Security Guide](SECURITY.md)** - Learn about Firebase App Check, security rules, and data protection
+
 ---
 
 ## 🎮 Demo
@@ -93,8 +101,9 @@ https://YOUR-USERNAME.github.io/shopping-planner/
 **Backend:**
 - Firebase Authentication (email/password)
 - Firebase Firestore (NoSQL database)
+- Firebase App Check (reCAPTCHA v3)
 - Real-time listeners for live updates
-- Secure user-isolated data
+- Secure user-isolated data with security rules
 
 **Hosting:**
 - GitHub Pages (free static hosting)
@@ -180,7 +189,10 @@ const firebaseConfig = {
   projectId: "YOUR_PROJECT_ID",
   storageBucket: "YOUR_PROJECT.appspot.com",
   messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  appId: "YOUR_APP_ID",
+
+  // App Check (optional but recommended)
+  appCheckSiteKey: "YOUR_RECAPTCHA_V3_SITE_KEY"
 };
 ```
 
@@ -189,8 +201,11 @@ const firebaseConfig = {
 2. Create a project
 3. Add a Web app
 4. Copy the config object
+5. (Optional) Enable App Check and get reCAPTCHA site key
 
 👉 **See [SETUP.md](SETUP.md) for detailed Firebase setup instructions**
+
+🔒 **See [SECURITY.md](SECURITY.md) for App Check setup and security best practices**
 
 ### Customizing Aisle Categories
 
@@ -235,10 +250,12 @@ shopping-planner/
 
 **Key Files:**
 - **`firebase-config.js`** - The ONLY file you need to edit (your Firebase credentials)
+- **`firebase-service.js`** - Firebase integration (includes App Check)
 - **`index.html`** - Main app, can customize category names
 - **`styles.css`** - Customize colors and styling
 - **`import.html`** - Bulk import tool (works independently)
 - **`convert.html`** - Utility for Google Sheets (no dependencies)
+- **`SECURITY.md`** - Security guide and App Check setup
 
 ---
 
@@ -372,7 +389,7 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 A: Yes! GitHub Pages and Firebase (free tier) are both free. Firebase limits are very generous for personal use.
 
 **Q: Is my data private?**
-A: Yes! Each user's data is isolated in Firebase. No one can see your meals or shopping lists.
+A: Yes! Each user's data is isolated in Firebase. Firestore security rules ensure no one can see your meals or shopping lists. See [SECURITY.md](SECURITY.md) for details.
 
 **Q: Can I use this with my family?**
 A: Each person needs their own account. Data is not shared between accounts. You can export/import to share meals.
@@ -388,6 +405,12 @@ A: You can export your data anytime. The free tier is very generous (1GB storage
 
 **Q: Can I self-host without Firebase?**
 A: The app is designed for Firebase, but you could modify it to use any backend API. You'd need to rewrite `firebase-service.js`.
+
+**Q: Is it safe to have `firebase-config.js` in a public repository?**
+A: Yes! These values are meant to be public (they're already visible in your browser). Your security comes from Firebase Authentication and Firestore Security Rules, not from hiding these values. Read [SECURITY.md](SECURITY.md) for a detailed explanation.
+
+**Q: What is Firebase App Check and do I need it?**
+A: App Check prevents bots and automated abuse by verifying requests come from your legitimate app. It's optional but recommended. See [SECURITY.md](SECURITY.md) for setup instructions.
 
 ---
 

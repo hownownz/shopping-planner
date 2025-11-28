@@ -159,14 +159,37 @@ const firebaseConfig = {
    - Format: `YOUR-USERNAME.github.io`
 7. Click **"Add"**
 
-### Step 9: Test Your App!
+### Step 9: Enable Firebase App Check (2 minutes) - OPTIONAL BUT RECOMMENDED
+
+**What is App Check?** Prevents bots and abuse by verifying requests come from your legitimate app.
+
+1. In Firebase Console, click **"App Check"** in the left sidebar
+2. Click **"Get started"** (or **"Apps"** tab if already started)
+3. Find your Web app and click **"Manage"** or the ⋮ menu
+4. Select **"reCAPTCHA v3"** as provider
+5. Click **"Save"**
+6. **Copy the Site Key** that appears
+7. Go to your GitHub repository
+8. Edit `firebase-config.js`
+9. Replace `"YOUR_RECAPTCHA_V3_SITE_KEY_HERE"` with your actual site key
+10. Commit the change
+
+**Example:**
+```javascript
+appCheckSiteKey: "6LcXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"  // Your actual key
+```
+
+**Note:** App Check is optional but highly recommended for security. See [SECURITY.md](SECURITY.md) for details.
+
+### Step 10: Test Your App!
 
 1. Visit your GitHub Pages URL
 2. Click **"Create Account"** on the login page
 3. Enter an email and password (minimum 6 characters)
 4. You should be redirected to the app!
+5. Open browser console (F12) - you should see: `✅ App Check initialized successfully`
 
-**🎉 Congratulations! Your shopping planner is live!**
+**🎉 Congratulations! Your shopping planner is live and secure!**
 
 ---
 

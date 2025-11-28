@@ -17,13 +17,32 @@ class FirebaseService {
         try {
             // Import Firebase modules
             const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js');
-            const { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } = 
+            const { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } =
                 await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');
-            const { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, updateDoc, deleteDoc, query, orderBy } = 
+            const { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, updateDoc, deleteDoc, query, orderBy } =
                 await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
+            const { initializeAppCheck, ReCaptchaV3Provider } =
+                await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-check.js');
 
             // Initialize Firebase
             const app = initializeApp(firebaseConfig);
+
+            // Initialize App Check with reCAPTCHA v3
+            if (firebaseConfig.appCheckSiteKey) {
+                try {
+                    const appCheck = initializeAppCheck(app, {
+                        provider: new ReCaptchaV3Provider(firebaseConfig.appCheckSiteKey),
+                        isTokenAutoRefreshEnabled: true
+                    });
+                    console.log('✅ App Check initialized successfully');
+                } catch (appCheckError) {
+                    console.warn('⚠️ App Check initialization failed (running without App Check):', appCheckError.message);
+                    // Continue without App Check - app will still work
+                }
+            } else {
+                console.warn('⚠️ App Check site key not configured. Add appCheckSiteKey to firebase-config.js');
+            }
+
             this.auth = getAuth(app);
             this.db = getFirestore(app);
 

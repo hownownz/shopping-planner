@@ -340,6 +340,21 @@ body {
     font-size: 18px;
 }
 
+.item-categorize {
+    background: none;
+    border: none;
+    color: var(--primary-color);
+    cursor: pointer;
+    padding: 4px 8px;
+    font-size: 16px;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+.item-categorize:hover {
+    opacity: 1;
+}
+
 /* Categories */
 .categories-list {
     display: grid;

@@ -183,11 +183,20 @@ class FirebaseService {
             }
         });
 
+        // Listen to ingredient mappings
+        const mappingsRef = this.imports.doc(this.db, `users/${userId}/data/ingredientMappings`);
+        const mappingsUnsubscribe = this.imports.onSnapshot(mappingsRef, (doc) => {
+            if (doc.exists()) {
+                this.notifySyncCallbacks('ingredientMappings', doc.data().mappings || {});
+            }
+        });
+
         this.unsubscribes.push(
             mealsUnsubscribe,
             categoriesUnsubscribe,
             shoppingUnsubscribe,
-            selectedUnsubscribe
+            selectedUnsubscribe,
+            mappingsUnsubscribe
         );
 
         console.log('🔄 Real-time sync enabled');
@@ -352,6 +361,23 @@ class FirebaseService {
             console.log('✅ Selected meals synced');
         } catch (error) {
             console.error('❌ Error syncing selected meals:', error);
+        }
+    }
+
+    async saveIngredientMappings(mappings) {
+        if (!this.currentUser) return;
+
+        const userId = this.currentUser.uid;
+        const mappingsRef = this.imports.doc(this.db, `users/${userId}/data/ingredientMappings`);
+
+        try {
+            await this.imports.setDoc(mappingsRef, {
+                mappings: mappings,
+                updatedAt: new Date().toISOString()
+            });
+            console.log('✅ Ingredient mappings synced');
+        } catch (error) {
+            console.error('❌ Error syncing ingredient mappings:', error);
         }
     }
 

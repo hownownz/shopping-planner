@@ -7,6 +7,7 @@ class DataStore {
         this.selectedMeals = [];
         this.shoppingList = [];
         this.categories = [];
+        this.ingredientMappings = {}; // Custom ingredient-to-category mappings
         this.isInitialized = false;
         this.syncEnabled = false;
     }
@@ -19,6 +20,7 @@ class DataStore {
         this.selectedMeals = this.loadLocal('selectedMeals') || [];
         this.shoppingList = this.loadLocal('shoppingList') || [];
         this.categories = this.loadLocal('categories') || this.getDefaultCategories();
+        this.ingredientMappings = this.loadLocal('ingredientMappings') || {};
 
         // Set up Firebase sync if authenticated
         if (firebaseService.isAuthenticated()) {
@@ -51,6 +53,10 @@ class DataStore {
                     this.selectedMeals = data;
                     this.saveLocal('selectedMeals', data);
                     if (window.app) window.app.render();
+                    break;
+                case 'ingredientMappings':
+                    this.ingredientMappings = data;
+                    this.saveLocal('ingredientMappings', data);
                     break;
             }
         });
@@ -95,6 +101,9 @@ class DataStore {
                     break;
                 case 'selectedMeals':
                     await firebaseService.saveSelectedMeals(data);
+                    break;
+                case 'ingredientMappings':
+                    await firebaseService.saveIngredientMappings(data);
                     break;
             }
         }
@@ -261,38 +270,51 @@ class DataStore {
     }
 
     guessCategory(ingredient) {
-        const text = ingredient.toLowerCase();
-        
+        const text = ingredient.toLowerCase().trim();
+
+        // Check custom mappings first (exact match)
+        if (this.ingredientMappings[text]) {
+            return this.ingredientMappings[text];
+        }
+
+        // Check if any custom mapping keyword is in the ingredient
+        for (const [keyword, category] of Object.entries(this.ingredientMappings)) {
+            if (text.includes(keyword.toLowerCase())) {
+                return category;
+            }
+        }
+
+        // Fall back to default regex patterns
         // Fruit/Veg
         if (text.match(/apple|banana|lettuce|tomato|cucumber|onion|garlic|carrot|potato|broccoli|cauliflower|spinach|capsicum|mushroom|celery|ginger|leek|cabbage|pumpkin|kumara|corn|bean|lemon|grape|mandarin/)) {
             return 'Fruit/Veg';
         }
-        
+
         // Meat/Chilled
         if (text.match(/egg|milk|cream|cheese|yogurt|butter|sausage|steak|chicken|beef|pork|ham|salami|tofu|mozzarella|parmesan|feta|halloumi/)) {
             return 'Meat/Chilled';
         }
-        
+
         // Pasta/Rice/Noodles
         if (text.match(/pasta|spaghetti|rice|noodle|macaroni|penne|risoni|lasagna|tortilla|wrap/)) {
             return 'Pasta/Noodles/Stock/Sauces/Tacos/Rice';
         }
-        
+
         // Canned/Sauces
         if (text.match(/can|tin|sauce|stock|paste|pickle|olive|chutney|passata/)) {
             return 'Canned/Seasoning/Sauces';
         }
-        
+
         // Frozen
         if (text.match(/frozen|ice cream/)) {
             return 'Frozen';
         }
-        
+
         // Bread
         if (text.match(/bread|bun|roll|muffin/)) {
             return 'Bread/Buns';
         }
-        
+
         // Baking
         if (text.match(/flour|sugar|baking|yeast|oil|coconut/)) {
             return 'Baking/Choc Sauce/Dried Fruits';
@@ -300,6 +322,26 @@ class DataStore {
 
         // Default to Misc
         return 'Misc';
+    }
+
+    // Ingredient mapping methods
+    async addIngredientMapping(ingredient, category) {
+        const key = ingredient.toLowerCase().trim();
+        this.ingredientMappings[key] = category;
+        await this.save('ingredientMappings', this.ingredientMappings);
+    }
+
+    async removeIngredientMapping(ingredient) {
+        const key = ingredient.toLowerCase().trim();
+        delete this.ingredientMappings[key];
+        await this.save('ingredientMappings', this.ingredientMappings);
+    }
+
+    getIngredientMappings() {
+        return Object.entries(this.ingredientMappings).map(([ingredient, category]) => ({
+            ingredient,
+            category
+        }));
     }
 
     async addManualItem(text, category) {
@@ -380,16 +422,21 @@ class DataStore {
 
     // Meal ordering methods
     async reorderMeals(fromIndex, toIndex) {
-        // Move meal from one position to another
-        const meal = this.meals[fromIndex];
-        this.meals.splice(fromIndex, 1);
-        this.meals.splice(toIndex, 0, meal);
+        // Get sorted meals array
+        const sortedMeals = this.getSortedMeals();
 
-        // Update sortOrder for all meals
-        this.meals.forEach((m, index) => {
+        // Move meal from one position to another in the sorted array
+        const meal = sortedMeals[fromIndex];
+        sortedMeals.splice(fromIndex, 1);
+        sortedMeals.splice(toIndex, 0, meal);
+
+        // Update sortOrder for all meals based on new positions
+        sortedMeals.forEach((m, index) => {
             m.sortOrder = index;
         });
 
+        // Update the main meals array
+        this.meals = sortedMeals;
         await this.save('meals', this.meals);
 
         if (this.syncEnabled) {
@@ -398,10 +445,21 @@ class DataStore {
     }
 
     async sortMealsAlphabetically() {
+        // Ensure all meals have sortOrder first
+        this.meals.forEach((meal, index) => {
+            if (meal.sortOrder === undefined) {
+                meal.sortOrder = index;
+            }
+        });
+
+        // Sort alphabetically
         this.meals.sort((a, b) => a.name.localeCompare(b.name));
+
+        // Reassign sortOrder based on new alphabetical position
         this.meals.forEach((m, index) => {
             m.sortOrder = index;
         });
+
         await this.save('meals', this.meals);
 
         if (this.syncEnabled) {
@@ -649,9 +707,10 @@ class App {
                         <div class="category-header">${aisle}</div>
                         <div class="category-items">
                             ${items.map(item => `
-                                <div class="shopping-item ${item.checked ? 'checked' : ''}" data-text="${item.text}">
+                                <div class="shopping-item ${item.checked ? 'checked' : ''}" data-text="${item.text}" data-category="${item.category}">
                                     <div class="item-checkbox"></div>
                                     <div class="item-text">${item.text}</div>
+                                    ${item.category === 'Misc' ? '<button class="item-categorize" data-text="' + item.text + '" title="Set category">🏷️</button>' : ''}
                                     <button class="item-remove" data-text="${item.text}">×</button>
                                 </div>
                             `).join('')}
@@ -665,7 +724,7 @@ class App {
         // Add click listeners
         container.querySelectorAll('.shopping-item').forEach(item => {
             item.addEventListener('click', async (e) => {
-                if (!e.target.classList.contains('item-remove')) {
+                if (!e.target.classList.contains('item-remove') && !e.target.classList.contains('item-categorize')) {
                     const text = item.dataset.text;
                     await this.store.toggleItemChecked(text);
                     this.renderShoppingList();
@@ -681,6 +740,57 @@ class App {
                 this.renderShoppingList();
             });
         });
+
+        container.querySelectorAll('.item-categorize').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const text = btn.dataset.text;
+                await this.promptForCategory(text);
+            });
+        });
+    }
+
+    async promptForCategory(ingredient) {
+        const categories = [
+            'Fruit/Veg',
+            'Meat/Chilled',
+            'Pasta/Noodles/Stock/Sauces/Tacos/Rice',
+            'Canned/Seasoning/Sauces',
+            'Frozen',
+            'Bread/Buns',
+            'Baking/Choc Sauce/Dried Fruits',
+            'Pet Things',
+            'Chips',
+            'Coffee/Drinks/Tea',
+            'Breakfast/Condiments',
+            'Bars/Chips/Pretzels/Popcorn',
+            'Paper Towels/Nappy Things/TP',
+            'Biscuits/Crackers',
+            'Cleaning/Washing products',
+            'Womens Products/Shampoo/Soap/Oral'
+        ];
+
+        const categoryList = categories.map((cat, i) => `${i + 1}. ${cat}`).join('\n');
+        const response = prompt(`Categorize "${ingredient}"\n\nEnter the number for the category:\n\n${categoryList}\n\nOr type a custom category name:`);
+
+        if (response) {
+            const num = parseInt(response);
+            let category;
+
+            if (num && num >= 1 && num <= categories.length) {
+                category = categories[num - 1];
+            } else {
+                category = response.trim();
+            }
+
+            if (category) {
+                await this.store.addIngredientMapping(ingredient, category);
+                // Recategorize existing shopping list items
+                await this.store.updateShoppingList();
+                this.renderShoppingList();
+                alert(`"${ingredient}" will now be categorized as "${category}"`);
+            }
+        }
     }
 
     renderCategories() {

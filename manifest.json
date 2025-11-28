@@ -1,8 +1,8 @@
 {
-  "name": "Meal Planner",
-  "short_name": "Meals",
+  "name": "Shopping Planner",
+  "short_name": "Shopping",
   "description": "Personal meal planning and shopping list app",
-  "start_url": "/",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#2563eb",

@@ -1,0 +1,82 @@
+# IDE and Editor Files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# OS Files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Temporary Files
+*.tmp
+*.temp
+*.bak
+~*
+
+# Environment Variables
+# Note: firebase-config.js is intentionally NOT ignored
+# It should be committed with your Firebase credentials
+# These are not secret - they're meant to be public
+.env
+.env.local
+.env.*.local
+
+# Build/Deploy Directories
+dist/
+build/
+out/
+
+# Dependencies (if you add npm later)
+node_modules/
+package-lock.json
+yarn.lock
+
+# Testing
+coverage/
+.nyc_output/
+
+# Cache
+.cache/
+.parcel-cache/
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# MacOS
+.AppleDouble
+.LSOverride
+
+# Windows
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Firebase (local emulator data)
+.firebase/
+firebase-debug.log
+firestore-debug.log
+
+# Service Worker (if generated)
+sw.js.map
+
+# Icon generation temp files
+*.psd
+*.ai
+*.sketch

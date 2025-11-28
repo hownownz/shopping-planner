@@ -5,13 +5,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Import Data - Meal Planner</title>
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            max-width: 800px;
-            margin: 50px auto;
-            padding: 20px;
             background: #f8fafc;
+            min-height: 100vh;
+            padding: 20px;
         }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
         .card {
             background: white;
             border-radius: 12px;
@@ -19,20 +30,24 @@
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
             margin-bottom: 20px;
         }
+
         h1 {
             color: #1e293b;
             margin-bottom: 10px;
         }
+
         .subtitle {
             color: #64748b;
             margin-bottom: 30px;
         }
+
         label {
             display: block;
             font-weight: 600;
             margin-bottom: 8px;
             color: #334155;
         }
+
         textarea {
             width: 100%;
             min-height: 200px;
@@ -43,11 +58,14 @@
             font-size: 13px;
             resize: vertical;
         }
+
         .button-group {
             display: flex;
             gap: 10px;
             margin-top: 20px;
+            flex-wrap: wrap;
         }
+
         button {
             padding: 12px 24px;
             border: none;
@@ -55,21 +73,32 @@
             font-weight: 600;
             cursor: pointer;
             transition: all 0.2s;
+            font-size: 14px;
         }
+
         .btn-primary {
             background: #2563eb;
             color: white;
         }
+
         .btn-primary:hover {
             background: #1d4ed8;
         }
+
+        .btn-primary:disabled {
+            background: #94a3b8;
+            cursor: not-allowed;
+        }
+
         .btn-secondary {
             background: #f1f5f9;
             color: #334155;
         }
+
         .btn-secondary:hover {
             background: #e2e8f0;
         }
+
         .success {
             background: #dcfce7;
             color: #166534;
@@ -77,6 +106,15 @@
             border-radius: 8px;
             margin-top: 20px;
         }
+
+        .error {
+            background: #fee;
+            color: #dc2626;
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+
         .info {
             background: #dbeafe;
             color: #1e40af;
@@ -84,79 +122,153 @@
             border-radius: 8px;
             margin-bottom: 20px;
         }
+
+        .warning {
+            background: #fef3c7;
+            color: #92400e;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
         code {
             background: #f1f5f9;
             padding: 2px 6px;
             border-radius: 4px;
             font-family: 'Monaco', monospace;
         }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            border: 3px solid #f3f4f6;
+            border-top: 3px solid #2563eb;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        input[type="file"] {
+            padding: 10px;
+            border: 2px dashed #e2e8f0;
+            border-radius: 8px;
+            width: 100%;
+            margin-bottom: 10px;
+        }
     </style>
 </head>
 <body>
-    <div class="card">
-        <h1>Import Your Google Sheets Data</h1>
-        <p class="subtitle">Quickly load your existing meals into the app</p>
+    <div class="container">
+        <div class="card">
+            <h1>Import Your Meals</h1>
+            <p class="subtitle">Add meals to your Firebase database</p>
 
-        <div class="info">
-            <strong>How to use:</strong><br>
-            1. Copy your meal data from Google Sheets (format: <code>Meal Name | Ingredient 1, Ingredient 2, Ingredient 3</code>)<br>
-            2. Paste it below<br>
-            3. Click "Import Meals"<br>
-            4. Go back to the main app
-        </div>
+            <div class="warning" id="auth-warning" style="display: none;">
+                ⚠️ You must be logged in to import data. <a href="login.html">Login here</a>
+            </div>
 
-        <label>Paste Your Meal Data (one per line)</label>
-        <textarea id="import-data" placeholder="Example format:
+            <div id="result"></div>
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p style="margin-top: 10px; color: #64748b;">Importing...</p>
+            </div>
+
+            <div id="import-forms">
+                <div class="info">
+                    <strong>Format:</strong> One meal per line<br>
+                    <code>Meal Name | ingredient1, ingredient2, ingredient3</code>
+                </div>
+
+                <label>Paste Your Meal Data</label>
+                <textarea id="import-data" placeholder="Example:
 Spaghetti Bolognese | 500g beef mince, 1 onion, 2 cans tomatoes, 400g spaghetti
-Chicken Stir Fry | 500g chicken breast, 1 capsicum, 1 broccoli, soy sauce, rice
-Thai Green Curry | 400ml coconut milk, curry paste, chicken, vegetables"></textarea>
+Thai Green Curry | coconut milk, curry paste, chicken, vegetables"></textarea>
 
-        <div class="button-group">
-            <button class="btn-primary" onclick="importMeals()">Import Meals</button>
-            <button class="btn-secondary" onclick="clearImport()">Clear</button>
-            <button class="btn-secondary" onclick="window.location.href='index.html'">Back to App</button>
+                <div class="button-group">
+                    <button class="btn-primary" onclick="importMeals()" id="import-btn">Import to Firebase</button>
+                    <button class="btn-secondary" onclick="clearImport()">Clear</button>
+                    <button class="btn-secondary" onclick="window.location.href='index.html'">Back to App</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Import from Backup File</h2>
+            <p class="subtitle">Upload a JSON backup file</p>
+            
+            <input type="file" id="json-file" accept=".json">
+            <button class="btn-primary" onclick="importJSON()" id="json-btn">Import Backup</button>
+        </div>
+
+        <div class="card">
+            <h2>Example Format</h2>
+            <textarea readonly style="min-height: 150px;">Spaghetti Bolognese | 500g beef mince, 1 onion, 2 cloves garlic, 2 cans tomatoes, 400g spaghetti
+Butter Chicken | 500g chicken, 1 cup yogurt, butter, garlic, ginger, tomato paste, cream, garam masala
+Fish and Chips | 4 fish fillets, 4 potatoes, oil for frying, lemon
+Chicken Caesar Salad | 2 chicken breasts, cos lettuce, parmesan cheese, croutons, caesar dressing</textarea>
         </div>
     </div>
 
-    <div class="card">
-        <h2>Import from Backup (JSON)</h2>
-        <p class="subtitle">Upload a backup file exported from the app</p>
-        
-        <input type="file" id="json-file" accept=".json" style="margin-bottom: 10px;">
-        <button class="btn-primary" onclick="importJSON()">Import Backup File</button>
+    <script type="module">
+        import firebaseService from './firebase-service.js';
 
-        <div id="result"></div>
-    </div>
+        // Check authentication on load
+        window.addEventListener('DOMContentLoaded', async () => {
+            showLoading();
+            
+            try {
+                await firebaseService.initialize();
+                
+                if (!firebaseService.isAuthenticated()) {
+                    document.getElementById('auth-warning').style.display = 'block';
+                    document.getElementById('import-forms').style.display = 'none';
+                    hideLoading();
+                    return;
+                }
+                
+                hideLoading();
+                showResult('info', `✅ Logged in as ${firebaseService.getCurrentUser().email}`);
+            } catch (error) {
+                hideLoading();
+                showResult('error', 'Failed to connect to Firebase. Check your internet connection.');
+            }
+        });
 
-    <div class="card">
-        <h2>Manual Entry Format</h2>
-        <p>Each line should follow this format:</p>
-        <code>Meal Name | ingredient1, ingredient2, ingredient3</code>
-        
-        <h3 style="margin-top: 20px;">Example:</h3>
-        <textarea readonly style="min-height: 150px;">Spaghetti Bolognese | 500g beef mince, 1 onion, 2 cloves garlic, 2 cans tomatoes, 400g spaghetti, olive oil, salt, pepper
-Butter Chicken | 500g chicken, 1 cup yogurt, butter, garlic, ginger, tomato paste, cream, garam masala, rice
-Fish and Chips | 4 fish fillets, 4 potatoes, oil for frying, lemon
-Chicken Caesar Salad | 2 chicken breasts, cos lettuce, parmesan cheese, croutons, caesar dressing
-Vegetable Stir Fry | 1 capsicum, 1 broccoli, 1 carrot, soy sauce, sesame oil, garlic, ginger, rice</textarea>
-    </div>
-
-    <script>
-        function importMeals() {
+        window.importMeals = async function() {
             const data = document.getElementById('import-data').value;
-            const resultDiv = document.getElementById('result');
             
             if (!data.trim()) {
-                resultDiv.innerHTML = '<div style="color: #dc2626; padding: 12px;">Please paste some data first!</div>';
+                showResult('error', 'Please paste some data first!');
                 return;
             }
+
+            if (!firebaseService.isAuthenticated()) {
+                showResult('error', 'You must be logged in to import data.');
+                return;
+            }
+
+            showLoading();
 
             try {
                 const lines = data.split('\n').filter(line => line.trim());
                 const meals = [];
 
                 lines.forEach(line => {
-                    // Support both | and tab as separators
                     const parts = line.includes('|') ? line.split('|') : line.split('\t');
                     
                     if (parts.length >= 2) {
@@ -178,99 +290,105 @@ Vegetable Stir Fry | 1 capsicum, 1 broccoli, 1 carrot, soy sauce, sesame oil, ga
                 });
 
                 if (meals.length === 0) {
-                    resultDiv.innerHTML = '<div style="color: #dc2626; padding: 12px;">No valid meals found. Check the format!</div>';
+                    hideLoading();
+                    showResult('error', 'No valid meals found. Check the format!');
                     return;
                 }
 
-                // Load existing meals
-                const existingMeals = JSON.parse(localStorage.getItem('meals') || '[]');
-                
-                // Merge (avoiding duplicates by name)
-                const existingNames = new Set(existingMeals.map(m => m.name.toLowerCase()));
-                const newMeals = meals.filter(m => !existingNames.has(m.name.toLowerCase()));
-                
-                const allMeals = [...existingMeals, ...newMeals];
-                
-                // Save to localStorage
-                localStorage.setItem('meals', JSON.stringify(allMeals));
+                // Import to Firebase
+                await firebaseService.saveMeals(meals);
 
-                resultDiv.innerHTML = `
-                    <div class="success">
-                        <strong>✅ Success!</strong><br>
-                        Imported ${newMeals.length} new meals<br>
-                        ${meals.length - newMeals.length > 0 ? `Skipped ${meals.length - newMeals.length} duplicate meals<br>` : ''}
-                        Total meals in database: ${allMeals.length}<br><br>
-                        <button class="btn-primary" onclick="window.location.href='index.html'">Go to App →</button>
-                    </div>
-                `;
+                hideLoading();
+                showResult('success', `
+                    ✅ Success! Imported ${meals.length} meals to Firebase<br>
+                    Your meals will sync across all your devices.<br><br>
+                    <button class="btn-primary" onclick="window.location.href='index.html'">Go to App →</button>
+                `);
 
                 document.getElementById('import-data').value = '';
 
             } catch (error) {
-                resultDiv.innerHTML = `<div style="color: #dc2626; padding: 12px;">Error: ${error.message}</div>`;
+                hideLoading();
+                console.error('Import error:', error);
+                showResult('error', `Error: ${error.message}`);
             }
-        }
+        };
 
-        function clearImport() {
-            document.getElementById('import-data').value = '';
-            document.getElementById('result').innerHTML = '';
-        }
-
-        function importJSON() {
+        window.importJSON = async function() {
             const fileInput = document.getElementById('json-file');
-            const resultDiv = document.getElementById('result');
             
             if (!fileInput.files || !fileInput.files[0]) {
-                resultDiv.innerHTML = '<div style="color: #dc2626; padding: 12px;">Please select a JSON file first!</div>';
+                showResult('error', 'Please select a JSON file first!');
                 return;
             }
+
+            if (!firebaseService.isAuthenticated()) {
+                showResult('error', 'You must be logged in to import data.');
+                return;
+            }
+
+            showLoading();
 
             const file = fileInput.files[0];
             const reader = new FileReader();
 
-            reader.onload = function(e) {
+            reader.onload = async function(e) {
                 try {
                     const data = JSON.parse(e.target.result);
                     
-                    if (data.meals && Array.isArray(data.meals)) {
-                        // Import meals
-                        localStorage.setItem('meals', JSON.stringify(data.meals));
-                        
-                        // Import categories if present
-                        if (data.categories && Array.isArray(data.categories)) {
-                            localStorage.setItem('categories', JSON.stringify(data.categories));
-                        }
-                        
-                        resultDiv.innerHTML = `
-                            <div class="success">
-                                <strong>✅ Backup Restored!</strong><br>
-                                Imported ${data.meals.length} meals<br>
-                                ${data.categories ? `Imported ${data.categories.length} categories<br>` : ''}
-                                <button class="btn-primary" onclick="window.location.href='index.html'">Go to App →</button>
-                            </div>
-                        `;
-                    } else {
-                        resultDiv.innerHTML = '<div style="color: #dc2626; padding: 12px;">Invalid backup file format!</div>';
+                    if (!data.meals || !Array.isArray(data.meals)) {
+                        hideLoading();
+                        showResult('error', 'Invalid backup file format!');
+                        return;
                     }
+
+                    // Import to Firebase
+                    await firebaseService.saveMeals(data.meals);
+                    
+                    if (data.categories && Array.isArray(data.categories)) {
+                        await firebaseService.saveCategories(data.categories);
+                    }
+
+                    hideLoading();
+                    showResult('success', `
+                        ✅ Backup Restored!<br>
+                        Imported ${data.meals.length} meals<br>
+                        ${data.categories ? `Imported ${data.categories.length} categories<br>` : ''}
+                        <button class="btn-primary" onclick="window.location.href='index.html'">Go to App →</button>
+                    `);
+
                 } catch (error) {
-                    resultDiv.innerHTML = `<div style="color: #dc2626; padding: 12px;">Error reading file: ${error.message}</div>`;
+                    hideLoading();
+                    console.error('JSON import error:', error);
+                    showResult('error', `Error reading file: ${error.message}`);
                 }
             };
 
             reader.readAsText(file);
+        };
+
+        window.clearImport = function() {
+            document.getElementById('import-data').value = '';
+            document.getElementById('result').innerHTML = '';
+        };
+
+        function showLoading() {
+            document.getElementById('loading').classList.add('show');
+            document.getElementById('import-btn').disabled = true;
+            document.getElementById('json-btn').disabled = true;
         }
 
-        // Check if there's existing data
-        window.addEventListener('DOMContentLoaded', () => {
-            const meals = JSON.parse(localStorage.getItem('meals') || '[]');
-            if (meals.length > 0) {
-                document.getElementById('result').innerHTML = `
-                    <div class="info" style="margin-top: 20px;">
-                        You currently have ${meals.length} meals in your database.
-                    </div>
-                `;
-            }
-        });
+        function hideLoading() {
+            document.getElementById('loading').classList.remove('show');
+            document.getElementById('import-btn').disabled = false;
+            document.getElementById('json-btn').disabled = false;
+        }
+
+        function showResult(type, message) {
+            const resultDiv = document.getElementById('result');
+            const className = type === 'success' ? 'success' : type === 'info' ? 'info' : 'error';
+            resultDiv.innerHTML = `<div class="${className}">${message}</div>`;
+        }
     </script>
 </body>
 </html>

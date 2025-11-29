@@ -851,6 +851,7 @@ class App {
         this.collapsedCategories = new Set(); // Track which shopping categories are collapsed
         this.collapsedAisles = new Set(); // Track which master product list aisles are collapsed - start all collapsed
         this.productSearchTerm = ''; // Track search term for master product list
+        this.productSearchHadFocus = false; // Track if product search box has/had focus
     }
 
     async initialize() {
@@ -1400,8 +1401,18 @@ class App {
         // Product search listener
         const productSearch = document.getElementById('product-search');
         if (productSearch) {
+            // Focus the search box if it had focus before re-render
+            if (this.productSearchHadFocus) {
+                productSearch.focus();
+                // Set cursor to end of text
+                const length = productSearch.value.length;
+                productSearch.setSelectionRange(length, length);
+                this.productSearchHadFocus = false;
+            }
+
             productSearch.addEventListener('input', (e) => {
                 this.productSearchTerm = e.target.value;
+                this.productSearchHadFocus = true; // Track that search box has focus
 
                 // Auto-expand aisles with matching products when searching
                 if (this.productSearchTerm.trim()) {
@@ -1416,9 +1427,22 @@ class App {
                             this.collapsedAisles.add(aisle);
                         }
                     });
+                } else {
+                    // If search is cleared, restore default collapsed state (all collapsed)
+                    const allAisles = this.store.getAllAisles();
+                    this.collapsedAisles.clear();
+                    allAisles.forEach(aisle => this.collapsedAisles.add(aisle));
                 }
 
                 this.renderCategories();
+            });
+
+            productSearch.addEventListener('focus', () => {
+                this.productSearchHadFocus = true;
+            });
+
+            productSearch.addEventListener('blur', () => {
+                this.productSearchHadFocus = false;
             });
         }
 

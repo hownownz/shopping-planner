@@ -909,6 +909,12 @@ class App {
         document.getElementById('save-category-btn').addEventListener('click', () => this.saveCategory());
         document.getElementById('delete-category-btn').addEventListener('click', () => this.deleteCategory());
 
+        // Product modal
+        document.getElementById('add-product-btn').addEventListener('click', () => this.openProductModal());
+        document.getElementById('close-product-modal').addEventListener('click', () => this.closeProductModal());
+        document.getElementById('cancel-product-btn').addEventListener('click', () => this.closeProductModal());
+        document.getElementById('save-product-btn').addEventListener('click', () => this.saveProduct());
+
         // Meal search
         document.getElementById('meal-search').addEventListener('input', (e) => {
             this.renderMealsList(e.target.value);
@@ -1652,6 +1658,36 @@ class App {
             this.closeCategoryModal();
             this.renderCategories();
         }
+    }
+
+    openProductModal() {
+        const modal = document.getElementById('product-modal');
+        const nameInput = document.getElementById('product-name-input');
+        const aisleSelect = document.getElementById('product-aisle-select');
+
+        nameInput.value = '';
+        aisleSelect.value = 'Misc';
+
+        modal.classList.add('active');
+        nameInput.focus();
+    }
+
+    closeProductModal() {
+        document.getElementById('product-modal').classList.remove('active');
+    }
+
+    async saveProduct() {
+        const name = document.getElementById('product-name-input').value.trim();
+        const aisle = document.getElementById('product-aisle-select').value;
+
+        if (!name) {
+            alert('Please enter a product name');
+            return;
+        }
+
+        await this.store.addProduct(name, aisle);
+        this.closeProductModal();
+        this.renderCategories();
     }
 
     async addManualItem() {

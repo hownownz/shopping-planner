@@ -812,38 +812,9 @@ body {
     padding: 6px;
 }
 
-/* Dark Mode Toggle */
-.dark-mode-toggle {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    background: var(--surface);
-    border: 2px solid var(--border);
-    box-shadow: var(--shadow);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 24px;
-    transition: all 0.3s ease;
-    z-index: 1000;
-}
-
-.dark-mode-toggle:hover {
-    transform: scale(1.1);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-}
-
-.dark-mode-toggle:active {
-    transform: scale(0.95);
-}
-
-body.dark-mode .dark-mode-toggle {
-    background: var(--surface);
-    border-color: var(--border);
+/* Dark Mode Toggle - now part of bottom nav */
+#dark-mode-toggle {
+    /* Uses same styles as other nav buttons */
 }
 
 /* Responsive */
@@ -865,11 +836,4 @@ body.dark-mode .dark-mode-toggle {
         width: 100%;
     }
 
-    .dark-mode-toggle {
-        top: 12px;
-        right: 12px;
-        width: 40px;
-        height: 40px;
-        font-size: 20px;
-    }
 }

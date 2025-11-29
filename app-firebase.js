@@ -717,19 +717,35 @@ class DataStore {
 
     // Get meals that use a specific product/ingredient
     getMealsUsingProduct(productName) {
-        const searchTerm = productName.toLowerCase();
+        const searchTerm = productName.toLowerCase().trim();
         return this.meals.filter(meal => {
             return meal.ingredients.some(ing => {
-                const ingredient = ing.toLowerCase();
+                const ingredient = ing.toLowerCase().trim();
 
-                // Use word boundary matching to avoid partial matches
-                // e.g., "corn" should not match "corn chips" or "corn tin"
-                // but should match "corn", "2 corn", "corn cobs", etc.
+                // More strict matching:
+                // "Corn" should NOT match "Corn Chips", "Corn Tin", "Sour Cream"
+                // "Corn" SHOULD match "corn", "2 corn", "corn cobs"
 
-                // Create regex with word boundaries
-                // \b matches word boundaries (start/end of word)
-                const regex = new RegExp(`\\b${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
-                return regex.test(ingredient);
+                // Strategy: Check if product name appears at start (after numbers/amounts)
+                // or as the complete ingredient (possibly with quantities)
+
+                // Remove common quantity patterns (1, 2, 1/2, 250g, etc)
+                const cleanIngredient = ingredient
+                    .replace(/^[\d\/\.\s]+/g, '') // Remove leading numbers/fractions
+                    .replace(/^\d+\s*(g|kg|ml|l|cup|cups|tbsp|tsp|can|tin|packet)s?\s+/gi, '') // Remove measurements
+                    .trim();
+
+                // Escape special regex characters in search term
+                const escapedTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+                // Check if the product name is at the start of the cleaned ingredient
+                // This means "corn" matches "corn" or "corn cobs" but not "sweet corn" or "corn chips"
+                const startsWithPattern = new RegExp(`^${escapedTerm}(\\s|$)`, 'i');
+
+                // Also check if it's an exact match (after cleaning)
+                const isExactMatch = cleanIngredient === searchTerm;
+
+                return isExactMatch || startsWithPattern.test(cleanIngredient);
             });
         });
     }

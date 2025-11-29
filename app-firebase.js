@@ -852,6 +852,7 @@ class App {
         this.collapsedAisles = new Set(); // Track which master product list aisles are collapsed - start all collapsed
         this.productSearchTerm = ''; // Track search term for master product list
         this.productSearchHadFocus = false; // Track if product search box has/had focus
+        this.userHasInteractedWithAisles = false; // Track if user has manually collapsed/expanded aisles
     }
 
     async initialize() {
@@ -1305,8 +1306,8 @@ class App {
             productsByAisle[aisle] = filteredProducts.filter(p => p.aisle === aisle);
         });
 
-        // Initialize all aisles as collapsed on first render (if not searching)
-        if (this.collapsedAisles.size === 0 && !this.productSearchTerm) {
+        // Initialize all aisles as collapsed on first render (if user hasn't interacted and not searching)
+        if (this.collapsedAisles.size === 0 && !this.productSearchTerm && !this.userHasInteractedWithAisles) {
             aisles.forEach(aisle => {
                 this.collapsedAisles.add(aisle);
             });
@@ -1452,6 +1453,7 @@ class App {
 
         if (collapseAllBtn) {
             collapseAllBtn.addEventListener('click', () => {
+                this.userHasInteractedWithAisles = true; // Mark that user has interacted
                 const aisles = this.store.getAllAisles();
                 aisles.forEach(aisle => this.collapsedAisles.add(aisle));
                 this.renderCategories();
@@ -1460,6 +1462,7 @@ class App {
 
         if (expandAllBtn) {
             expandAllBtn.addEventListener('click', () => {
+                this.userHasInteractedWithAisles = true; // Mark that user has interacted
                 this.collapsedAisles.clear();
                 this.renderCategories();
             });
@@ -1468,6 +1471,7 @@ class App {
         // Aisle collapse/expand listeners
         container.querySelectorAll('.master-aisle-header').forEach(header => {
             header.addEventListener('click', () => {
+                this.userHasInteractedWithAisles = true; // Mark that user has interacted
                 const aisle = header.dataset.aisle;
                 if (this.collapsedAisles.has(aisle)) {
                     this.collapsedAisles.delete(aisle);

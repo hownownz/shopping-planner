@@ -495,6 +495,7 @@ class App {
         this.editingMealId = null;
         this.editingCategoryId = null;
         this.isReady = false;
+        this.collapsedCategories = new Set(); // Track which shopping categories are collapsed
     }
 
     async initialize() {
@@ -730,9 +731,16 @@ class App {
             .filter(aisle => grouped[aisle] && grouped[aisle].length > 0)
             .map(aisle => {
                 const items = grouped[aisle];
+                const isCollapsed = this.collapsedCategories.has(aisle);
+                const checkedCount = items.filter(item => item.checked).length;
+                const totalCount = items.length;
                 return `
-                    <div class="shopping-category">
-                        <div class="category-header">${aisle}</div>
+                    <div class="shopping-category ${isCollapsed ? 'collapsed' : ''}">
+                        <div class="category-header" data-category="${aisle}">
+                            <span class="category-toggle">${isCollapsed ? '▶' : '▼'}</span>
+                            <span class="category-name">${aisle}</span>
+                            <span class="category-progress">${checkedCount}/${totalCount}</span>
+                        </div>
                         <div class="category-items">
                             ${items.map(item => `
                                 <div class="shopping-item ${item.checked ? 'checked' : ''}" data-text="${item.text}" data-category="${item.category}">
@@ -752,7 +760,20 @@ class App {
 
         container.innerHTML = html;
 
-        // Add click listeners
+        // Add click listener for category headers (collapse/expand)
+        container.querySelectorAll('.category-header').forEach(header => {
+            header.addEventListener('click', () => {
+                const category = header.dataset.category;
+                if (this.collapsedCategories.has(category)) {
+                    this.collapsedCategories.delete(category);
+                } else {
+                    this.collapsedCategories.add(category);
+                }
+                this.renderShoppingList();
+            });
+        });
+
+        // Add click listeners for items
         container.querySelectorAll('.shopping-item').forEach(item => {
             item.addEventListener('click', async (e) => {
                 if (!e.target.classList.contains('item-remove') && !e.target.classList.contains('item-categorize')) {

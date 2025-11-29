@@ -260,12 +260,41 @@ body {
     box-shadow: var(--shadow);
 }
 
+.shopping-category.collapsed .category-items {
+    display: none;
+}
+
 .category-header {
     background: var(--primary-color);
     color: white;
     padding: 12px 16px;
     font-weight: 600;
     font-size: 16px;
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: background-color 0.2s;
+}
+
+.category-header:hover {
+    background: #1d4ed8;
+}
+
+.category-toggle {
+    font-size: 12px;
+    transition: transform 0.2s;
+}
+
+.category-name {
+    flex: 1;
+}
+
+.category-progress {
+    font-size: 14px;
+    opacity: 0.9;
+    font-weight: 500;
 }
 
 .category-items {

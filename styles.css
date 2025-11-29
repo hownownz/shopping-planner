@@ -812,9 +812,53 @@ body {
     padding: 6px;
 }
 
-/* Dark Mode Toggle - now part of bottom nav */
-#dark-mode-toggle {
-    /* Uses same styles as other nav buttons */
+/* Dark Mode Toggle - in header actions */
+.dark-mode-toggle {
+    font-size: 20px;
+    padding: 8px 12px;
+}
+
+/* Recent Products */
+.recent-products-list {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 12px 0;
+    margin-bottom: 8px;
+}
+
+.recent-product-item {
+    flex-shrink: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 14px;
+}
+
+.recent-product-item:hover {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+    transform: translateY(-2px);
+}
+
+.recent-product-name {
+    font-weight: 500;
+}
+
+.recent-product-count {
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
+.recent-product-item:hover .recent-product-count {
+    color: rgba(255, 255, 255, 0.8);
 }
 
 /* Responsive */

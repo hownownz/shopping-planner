@@ -896,6 +896,8 @@ class App {
         this.productSearchHadFocus = false; // Track if product search box has/had focus
         this.userHasInteractedWithAisles = false; // Track if user has manually collapsed/expanded aisles
         this.productSortMode = 'alphabetical'; // Track sort mode for products: 'alphabetical' or 'frequency'
+        this.undoStack = []; // Track actions for undo functionality
+        this.maxUndoStack = 10; // Keep last 10 actions
     }
 
     async initialize() {
@@ -930,11 +932,10 @@ class App {
             this.updateDarkModeIcon(true);
         }
 
-        // Add event listener to toggle button
-        const toggleBtn = document.getElementById('dark-mode-toggle');
-        if (toggleBtn) {
-            toggleBtn.addEventListener('click', () => this.toggleDarkMode());
-        }
+        // Add event listeners to all toggle buttons (one in each view header)
+        document.querySelectorAll('.dark-mode-toggle').forEach(btn => {
+            btn.addEventListener('click', () => this.toggleDarkMode());
+        });
     }
 
     toggleDarkMode() {
@@ -944,9 +945,83 @@ class App {
     }
 
     updateDarkModeIcon(isDarkMode) {
-        const icon = document.querySelector('.toggle-icon');
-        if (icon) {
+        // Update all toggle icons (one in each view header)
+        document.querySelectorAll('.toggle-icon').forEach(icon => {
             icon.textContent = isDarkMode ? '☀️' : '🌙';
+        });
+    }
+
+    getRecentProducts(limit = 15) {
+        // Get products sorted by usage count, return top N
+        const productsWithCount = this.store.masterProductList
+            .map(product => ({
+                ...product,
+                count: this.store.itemUsageCount[product.name.toLowerCase()] || 0
+            }))
+            .filter(p => p.count > 0) // Only products that have been used
+            .sort((a, b) => b.count - a.count) // Sort by count descending
+            .slice(0, limit);
+
+        return productsWithCount;
+    }
+
+    // Undo system
+    pushUndoAction(action) {
+        this.undoStack.push(action);
+        // Keep only last N actions
+        if (this.undoStack.length > this.maxUndoStack) {
+            this.undoStack.shift();
+        }
+        this.updateUndoButton();
+    }
+
+    async undo() {
+        if (this.undoStack.length === 0) return;
+
+        const action = this.undoStack.pop();
+
+        try {
+            switch (action.type) {
+                case 'DELETE_MEAL':
+                    // Restore deleted meal
+                    this.store.meals.push(action.data);
+                    await this.store.save('meals', this.store.meals);
+                    this.renderMealsList();
+                    break;
+
+                case 'DELETE_PRODUCT':
+                    // Restore deleted product
+                    this.store.masterProductList.push(action.data);
+                    await this.store.save('masterProductList', this.store.masterProductList);
+                    this.renderCategories();
+                    break;
+
+                case 'CLEAR_CHECKED':
+                    // Restore cleared items
+                    this.store.shoppingList.push(...action.data);
+                    await this.store.save('shoppingList', this.store.shoppingList);
+                    this.renderShoppingList();
+                    break;
+
+                case 'CLEAR_ALL':
+                    // Restore all items
+                    this.store.shoppingList = action.data;
+                    await this.store.save('shoppingList', this.store.shoppingList);
+                    this.renderShoppingList();
+                    break;
+            }
+        } catch (error) {
+            console.error('Undo failed:', error);
+            alert('Failed to undo action');
+        }
+
+        this.updateUndoButton();
+    }
+
+    updateUndoButton() {
+        const undoBtn = document.getElementById('undo-btn');
+        if (undoBtn) {
+            undoBtn.disabled = this.undoStack.length === 0;
         }
     }
 
@@ -969,6 +1044,12 @@ class App {
     }
 
     initEventListeners() {
+        // Undo button
+        const undoBtn = document.getElementById('undo-btn');
+        if (undoBtn) {
+            undoBtn.addEventListener('click', () => this.undo());
+        }
+
         // Navigation
         document.querySelectorAll('.nav-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
@@ -1360,6 +1441,20 @@ class App {
             html += '</div>';
         }
 
+        // Recently Used Products Section
+        const recentProducts = this.getRecentProducts(15);
+        if (recentProducts.length > 0) {
+            html += '<div class="section-header" style="margin-top: 24px;">⏱️ Recently Used</div>';
+            html += '<div class="recent-products-list">';
+            html += recentProducts.map(product => `
+                <button class="recent-product-item" data-id="${product.id}" data-name="${product.name}" data-aisle="${product.aisle}">
+                    <span class="recent-product-name">${product.name}</span>
+                    <span class="recent-product-count">×${product.count}</span>
+                </button>
+            `).join('');
+            html += '</div>';
+        }
+
         // All Products Section
         html += '<div class="section-header" style="margin-top: 24px;">🛍️ All Products</div>';
         html += '<div style="display: flex; gap: 10px; margin-bottom: 16px;">';
@@ -1605,6 +1700,22 @@ class App {
             });
         });
 
+        // Recent products - click to add
+        container.querySelectorAll('.recent-product-item').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const name = btn.dataset.name;
+                const aisle = btn.dataset.aisle;
+                await this.store.addManualItem(name, aisle);
+                this.renderShoppingList();
+                // Show feedback
+                btn.style.transform = 'scale(1.05)';
+                setTimeout(() => {
+                    btn.style.transform = '';
+                }, 200);
+            });
+        });
+
         // Add product to shopping list
         container.querySelectorAll('.add-product-btn').forEach(btn => {
             btn.addEventListener('click', async (e) => {
@@ -1638,7 +1749,15 @@ class App {
                 e.stopPropagation();
                 const id = btn.dataset.id;
                 const name = btn.dataset.name;
-                if (confirm(`Delete "${name}" from master product list? This cannot be undone.`)) {
+                if (confirm(`Delete "${name}" from master product list?`)) {
+                    // Save for undo
+                    const product = this.store.masterProductList.find(p => p.id === id);
+                    if (product) {
+                        this.pushUndoAction({
+                            type: 'DELETE_PRODUCT',
+                            data: { ...product }
+                        });
+                    }
                     await this.store.deleteProduct(id);
                     this.renderCategories();
                 }
@@ -1687,6 +1806,14 @@ class App {
             btn.addEventListener('click', async () => {
                 const id = btn.dataset.id;
                 if (confirm('Are you sure you want to delete this meal?')) {
+                    // Save for undo
+                    const meal = this.store.meals.find(m => m.id === id);
+                    if (meal) {
+                        this.pushUndoAction({
+                            type: 'DELETE_MEAL',
+                            data: { ...meal }
+                        });
+                    }
                     await this.store.deleteMeal(id);
                     this.renderDatabase();
                 }
@@ -1969,6 +2096,14 @@ class App {
 
     async clearCheckedItems() {
         if (confirm('Remove all checked items from the list?')) {
+            // Save for undo
+            const checkedItems = this.store.shoppingList.filter(i => i.checked);
+            if (checkedItems.length > 0) {
+                this.pushUndoAction({
+                    type: 'CLEAR_CHECKED',
+                    data: checkedItems.map(i => ({ ...i }))
+                });
+            }
             await this.store.clearCheckedItems();
             this.renderShoppingList();
         }
@@ -1976,6 +2111,14 @@ class App {
 
     async clearAllItems() {
         if (confirm('Clear the entire shopping list?')) {
+            // Save for undo
+            const allItems = [...this.store.shoppingList];
+            if (allItems.length > 0) {
+                this.pushUndoAction({
+                    type: 'CLEAR_ALL',
+                    data: allItems.map(i => ({ ...i }))
+                });
+            }
             await this.store.clearAllItems();
             this.renderShoppingList();
         }

@@ -9,7 +9,7 @@
     <title>Shopping Planner</title>
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icon-192.png">
-    <link rel="stylesheet" href="styles.css?v=9">
+    <link rel="stylesheet" href="styles.css?v=10">
 </head>
 <body>
     <div class="app-container">
@@ -31,17 +31,19 @@
                 <span class="nav-icon">📚</span>
                 <span class="nav-label">Database</span>
             </button>
-            <button class="nav-btn" id="dark-mode-toggle" title="Toggle dark mode">
-                <span class="nav-icon toggle-icon">🌙</span>
-                <span class="nav-label">Theme</span>
-            </button>
         </nav>
 
         <!-- Meal Selector View -->
         <div class="view active" id="meals-view">
             <div class="view-header">
                 <h1>Select Meals</h1>
-                <button class="btn-secondary" id="clear-meals-btn">Clear All</button>
+                <div class="header-actions">
+                    <button class="btn-secondary undo-btn" id="undo-btn" title="Undo last action" disabled>↶ Undo</button>
+                    <button class="btn-secondary" id="clear-meals-btn">Clear All</button>
+                    <button class="icon-btn dark-mode-toggle" title="Toggle dark mode">
+                        <span class="toggle-icon">🌙</span>
+                    </button>
+                </div>
             </div>
             <div class="search-box">
                 <input type="text" id="meal-search" placeholder="Search meals...">
@@ -57,6 +59,9 @@
                     <button class="btn-secondary" id="uncheck-all-btn">Uncheck All</button>
                     <button class="btn-secondary" id="clear-checked-btn">Clear Checked</button>
                     <button class="btn-secondary" id="clear-list-btn">Clear All</button>
+                    <button class="icon-btn dark-mode-toggle" title="Toggle dark mode">
+                        <span class="toggle-icon">🌙</span>
+                    </button>
                 </div>
             </div>
             
@@ -99,6 +104,9 @@
                     <button class="btn-secondary" id="import-master-products-btn">Import Products</button>
                     <button class="btn-secondary" id="add-product-btn">+ Add Product</button>
                     <button class="btn-primary" id="manage-categories-btn">+ Add Group</button>
+                    <button class="icon-btn dark-mode-toggle" title="Toggle dark mode">
+                        <span class="toggle-icon">🌙</span>
+                    </button>
                 </div>
             </div>
             <div id="categories-list" class="categories-list"></div>
@@ -113,6 +121,9 @@
                     <button class="btn-secondary" id="manage-ingredients-btn">Manage Ingredients</button>
                     <button class="btn-secondary" id="export-data-btn">Export</button>
                     <button class="btn-primary" id="add-meal-btn">+ Add Meal</button>
+                    <button class="icon-btn dark-mode-toggle" title="Toggle dark mode">
+                        <span class="toggle-icon">🌙</span>
+                    </button>
                 </div>
             </div>
             <div id="database-list" class="database-list"></div>
@@ -343,6 +354,6 @@
         </div>
     </div>
 
-    <script type="module" src="app-firebase.js?v=9"></script>
+    <script type="module" src="app-firebase.js?v=10"></script>
 </body>
 </html>

@@ -963,12 +963,19 @@ class App {
         document.getElementById('cancel-bulk-mode-btn').addEventListener('click', () => this.toggleBulkMode());
         document.getElementById('save-bulk-ingredients-btn').addEventListener('click', () => this.saveBulkIngredients());
 
-        // Export/Import
+        // Export/Import ingredients
         document.getElementById('export-ingredients-btn').addEventListener('click', () => this.exportIngredients());
         document.getElementById('import-ingredients-btn').addEventListener('click', () => {
             document.getElementById('import-ingredients-file').click();
         });
         document.getElementById('import-ingredients-file').addEventListener('change', (e) => this.importIngredients(e));
+
+        // Export/Import master products
+        document.getElementById('export-master-products-btn').addEventListener('click', () => this.exportMasterProducts());
+        document.getElementById('import-master-products-btn').addEventListener('click', () => {
+            document.getElementById('import-master-products-file').click();
+        });
+        document.getElementById('import-master-products-file').addEventListener('change', (e) => this.importMasterProducts(e));
     }
 
     switchView(view) {
@@ -1277,8 +1284,12 @@ class App {
 
         // All Products Section
         html += '<div class="section-header" style="margin-top: 24px;">🛍️ All Products</div>';
-        html += '<div class="search-box" style="margin-bottom: 16px;">';
+        html += '<div style="display: flex; gap: 10px; margin-bottom: 16px;">';
+        html += '<div class="search-box" style="flex: 1; margin: 0;">';
         html += `<input type="text" id="product-search" placeholder="Search products..." value="${this.productSearchTerm}">`;
+        html += '</div>';
+        html += '<button class="btn-secondary" id="collapse-all-aisles-btn" style="white-space: nowrap;">Collapse All</button>';
+        html += '<button class="btn-secondary" id="expand-all-aisles-btn" style="white-space: nowrap;">Expand All</button>';
         html += '</div>';
 
         // Get filtered products
@@ -1391,6 +1402,41 @@ class App {
         if (productSearch) {
             productSearch.addEventListener('input', (e) => {
                 this.productSearchTerm = e.target.value;
+
+                // Auto-expand aisles with matching products when searching
+                if (this.productSearchTerm.trim()) {
+                    const filteredProducts = this.store.searchProducts(this.productSearchTerm);
+                    const aislesWithMatches = new Set(filteredProducts.map(p => p.aisle));
+                    const allAisles = this.store.getAllAisles();
+
+                    // Collapse aisles without matches, expand aisles with matches
+                    this.collapsedAisles.clear();
+                    allAisles.forEach(aisle => {
+                        if (!aislesWithMatches.has(aisle)) {
+                            this.collapsedAisles.add(aisle);
+                        }
+                    });
+                }
+
+                this.renderCategories();
+            });
+        }
+
+        // Collapse/Expand All buttons
+        const collapseAllBtn = document.getElementById('collapse-all-aisles-btn');
+        const expandAllBtn = document.getElementById('expand-all-aisles-btn');
+
+        if (collapseAllBtn) {
+            collapseAllBtn.addEventListener('click', () => {
+                const aisles = this.store.getAllAisles();
+                aisles.forEach(aisle => this.collapsedAisles.add(aisle));
+                this.renderCategories();
+            });
+        }
+
+        if (expandAllBtn) {
+            expandAllBtn.addEventListener('click', () => {
+                this.collapsedAisles.clear();
                 this.renderCategories();
             });
         }
@@ -2032,6 +2078,95 @@ class App {
 
                 const finalCount = Object.keys(this.store.ingredientMappings).length;
                 alert(`Successfully imported! Total mappings: ${finalCount}`);
+
+            } catch (error) {
+                alert('Error reading file: ' + error.message);
+            }
+        };
+
+        reader.readAsText(file);
+
+        // Reset file input so same file can be imported again
+        event.target.value = '';
+    }
+
+    exportMasterProducts() {
+        const data = {
+            masterProductList: this.store.masterProductList,
+            exportDate: new Date().toISOString(),
+            count: this.store.masterProductList.length
+        };
+
+        // Create downloadable JSON file
+        const dataStr = JSON.stringify(data, null, 2);
+        const dataBlob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(dataBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `master-products-${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        alert(`Exported ${this.store.masterProductList.length} products!`);
+    }
+
+    async importMasterProducts(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                const data = JSON.parse(e.target.result);
+
+                if (!data.masterProductList || !Array.isArray(data.masterProductList)) {
+                    alert('Invalid file format. Expected a JSON file with "masterProductList" array.');
+                    return;
+                }
+
+                const newProducts = data.masterProductList;
+                const currentCount = this.store.masterProductList.length;
+                const newCount = newProducts.length;
+
+                const action = confirm(
+                    `Found ${newCount} products in file.\n\n` +
+                    `Current products: ${currentCount}\n\n` +
+                    `Choose:\n` +
+                    `OK = Replace all existing products\n` +
+                    `Cancel = Merge (keep existing, add new)`
+                );
+
+                if (action) {
+                    // Replace all
+                    this.store.masterProductList = newProducts;
+                } else {
+                    // Merge - add products that don't already exist (by name + aisle)
+                    const existingKeys = new Set(
+                        this.store.masterProductList.map(p => `${p.name.toLowerCase()}|${p.aisle}`)
+                    );
+
+                    newProducts.forEach(product => {
+                        const key = `${product.name.toLowerCase()}|${product.aisle}`;
+                        if (!existingKeys.has(key)) {
+                            // Generate new ID and timestamps for imported products
+                            this.store.masterProductList.push({
+                                ...product,
+                                id: `product-${Date.now()}-${Math.random()}`,
+                                createdAt: product.createdAt || new Date().toISOString(),
+                                updatedAt: new Date().toISOString()
+                            });
+                        }
+                    });
+                }
+
+                await this.store.save('masterProductList', this.store.masterProductList);
+
+                this.renderCategories();
+
+                const finalCount = this.store.masterProductList.length;
+                alert(`Successfully imported! Total products: ${finalCount}`);
 
             } catch (error) {
                 alert('Error reading file: ' + error.message);

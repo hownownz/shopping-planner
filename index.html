@@ -9,7 +9,7 @@
     <title>Shopping Planner</title>
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icon-192.png">
-    <link rel="stylesheet" href="styles.css?v=6">
+    <link rel="stylesheet" href="styles.css?v=7">
 </head>
 <body>
     <div class="app-container">
@@ -90,6 +90,8 @@
             <div class="view-header">
                 <h1>Quick Add</h1>
                 <div class="header-actions">
+                    <button class="btn-secondary" id="export-master-products-btn">Export Products</button>
+                    <button class="btn-secondary" id="import-master-products-btn">Import Products</button>
                     <button class="btn-secondary" id="add-product-btn">+ Add Product</button>
                     <button class="btn-primary" id="manage-categories-btn">+ Add Group</button>
                 </div>
@@ -253,6 +255,9 @@
         </div>
     </div>
 
+    <!-- Hidden file input for master products import -->
+    <input type="file" id="import-master-products-file" accept=".json" style="display: none;">
+
     <!-- Modal for adding products to master list -->
     <div class="modal" id="product-modal">
         <div class="modal-content">
@@ -333,6 +338,6 @@
         </div>
     </div>
 
-    <script type="module" src="app-firebase.js?v=6"></script>
+    <script type="module" src="app-firebase.js?v=7"></script>
 </body>
 </html>

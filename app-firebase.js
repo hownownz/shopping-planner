@@ -847,27 +847,35 @@ class App {
 
     renderCategories() {
         const container = document.getElementById('categories-list');
-        
+
         if (this.store.categories.length === 0) {
             container.innerHTML = `
                 <div class="empty-state">
-                    <div class="empty-state-icon">📦</div>
-                    <div class="empty-state-text">No categories yet. Click Manage to add some!</div>
+                    <div class="empty-state-icon">⚡</div>
+                    <div class="empty-state-text">No quick-add groups yet. Click "+ Add Group" to create one!</div>
                 </div>
             `;
             return;
         }
 
         container.innerHTML = this.store.categories.map(category => `
-            <div class="category-card" data-id="${category.id}">
-                <div class="category-icon">${category.icon}</div>
-                <div class="category-name">${category.name}</div>
-                <div class="category-count">${category.items.length} items</div>
+            <div class="category-card">
+                <div class="category-card-main" data-id="${category.id}">
+                    <div class="category-icon">${category.icon}</div>
+                    <div class="category-info">
+                        <div class="category-name">${category.name}</div>
+                        <div class="category-count">${category.items.length} items</div>
+                    </div>
+                </div>
+                <div class="category-actions">
+                    <button class="icon-btn edit-category-btn" data-id="${category.id}" title="Edit">✏️</button>
+                    <button class="icon-btn delete-category-btn" data-id="${category.id}" title="Delete">🗑️</button>
+                </div>
             </div>
         `).join('');
 
-        // Add click listeners
-        container.querySelectorAll('.category-card').forEach(card => {
+        // Add click listeners for adding items to shopping list
+        container.querySelectorAll('.category-card-main').forEach(card => {
             card.addEventListener('click', async () => {
                 const id = card.dataset.id;
                 await this.store.addCategoryItems(id);
@@ -877,6 +885,28 @@ class App {
                 setTimeout(() => {
                     card.style.transform = '';
                 }, 200);
+            });
+        });
+
+        // Add edit listeners
+        container.querySelectorAll('.edit-category-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const id = btn.dataset.id;
+                this.openCategoryModal(id);
+            });
+        });
+
+        // Add delete listeners
+        container.querySelectorAll('.delete-category-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const id = btn.dataset.id;
+                const category = this.store.categories.find(c => c.id === id);
+                if (confirm(`Delete "${category.name}"? This cannot be undone.`)) {
+                    await this.store.deleteCategory(id);
+                    this.renderCategories();
+                }
             });
         });
     }
@@ -1046,13 +1076,13 @@ class App {
 
         if (categoryId) {
             const category = this.store.categories.find(c => c.id === categoryId);
-            title.textContent = 'Edit Category';
+            title.textContent = 'Edit Quick-Add Group';
             nameInput.value = category.name;
             itemsInput.value = category.items.join('\n');
             aisleSelect.value = category.aisle;
             deleteBtn.style.display = 'block';
         } else {
-            title.textContent = 'Add Category';
+            title.textContent = 'Add Quick-Add Group';
             nameInput.value = '';
             itemsInput.value = '';
             aisleSelect.value = 'Misc';

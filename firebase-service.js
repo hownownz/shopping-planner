@@ -191,12 +191,21 @@ class FirebaseService {
             }
         });
 
+        // Listen to master product list
+        const masterProductListRef = this.imports.doc(this.db, `users/${userId}/data/masterProductList`);
+        const masterProductListUnsubscribe = this.imports.onSnapshot(masterProductListRef, (doc) => {
+            if (doc.exists()) {
+                this.notifySyncCallbacks('masterProductList', doc.data().products || []);
+            }
+        });
+
         this.unsubscribes.push(
             mealsUnsubscribe,
             categoriesUnsubscribe,
             shoppingUnsubscribe,
             selectedUnsubscribe,
-            mappingsUnsubscribe
+            mappingsUnsubscribe,
+            masterProductListUnsubscribe
         );
 
         console.log('🔄 Real-time sync enabled');
@@ -380,6 +389,23 @@ class FirebaseService {
             console.log('✅ Ingredient mappings synced');
         } catch (error) {
             console.error('❌ Error syncing ingredient mappings:', error);
+        }
+    }
+
+    async saveMasterProductList(products) {
+        if (!this.currentUser) return;
+
+        const userId = this.currentUser.uid;
+        const masterProductListRef = this.imports.doc(this.db, `users/${userId}/data/masterProductList`);
+
+        try {
+            await this.imports.setDoc(masterProductListRef, {
+                products: products,
+                updatedAt: new Date().toISOString()
+            });
+            console.log('✅ Master product list synced');
+        } catch (error) {
+            console.error('❌ Error syncing master product list:', error);
         }
     }
 

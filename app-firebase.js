@@ -9,6 +9,7 @@ class DataStore {
         this.categories = [];
         this.ingredientMappings = {}; // Custom ingredient-to-category mappings
         this.itemUsageCount = {}; // Track how often items are added to shopping list
+        this.masterProductList = []; // Master list of all products organized by aisle
         this.isInitialized = false;
         this.syncEnabled = false;
     }
@@ -23,6 +24,7 @@ class DataStore {
         this.categories = this.loadLocal('categories') || this.getDefaultCategories();
         this.ingredientMappings = this.loadLocal('ingredientMappings') || {};
         this.itemUsageCount = this.loadLocal('itemUsageCount') || {};
+        this.masterProductList = this.loadLocal('masterProductList') || this.getDefaultMasterProductList();
 
         // Set up Firebase sync if authenticated
         if (firebaseService.isAuthenticated()) {
@@ -60,6 +62,11 @@ class DataStore {
                     this.ingredientMappings = data;
                     this.saveLocal('ingredientMappings', data);
                     break;
+                case 'masterProductList':
+                    this.masterProductList = data;
+                    this.saveLocal('masterProductList', data);
+                    if (window.app) window.app.render();
+                    break;
             }
         });
 
@@ -88,7 +95,7 @@ class DataStore {
     // Save to both localStorage and Firebase
     async save(key, data) {
         this.saveLocal(key, data);
-        
+
         if (this.syncEnabled) {
             // Sync to Firebase based on data type
             switch(key) {
@@ -106,6 +113,9 @@ class DataStore {
                     break;
                 case 'ingredientMappings':
                     await firebaseService.saveIngredientMappings(data);
+                    break;
+                case 'masterProductList':
+                    await firebaseService.saveMasterProductList(data);
                     break;
             }
         }
@@ -165,6 +175,284 @@ class DataStore {
                 ]
             }
         ];
+    }
+
+    getDefaultMasterProductList() {
+        // Master product list from user's iCloud shopping list
+        const products = [
+            // Fruit/Veg
+            { aisle: 'Fruit/Veg', name: 'Apples' },
+            { aisle: 'Fruit/Veg', name: 'Avocados' },
+            { aisle: 'Fruit/Veg', name: 'Bananas' },
+            { aisle: 'Fruit/Veg', name: 'Bok Choy' },
+            { aisle: 'Fruit/Veg', name: 'Broccoli' },
+            { aisle: 'Fruit/Veg', name: 'Capsicum' },
+            { aisle: 'Fruit/Veg', name: 'Carrots' },
+            { aisle: 'Fruit/Veg', name: 'Celery' },
+            { aisle: 'Fruit/Veg', name: 'Cherry tomatoes' },
+            { aisle: 'Fruit/Veg', name: 'Chives' },
+            { aisle: 'Fruit/Veg', name: 'Coriander' },
+            { aisle: 'Fruit/Veg', name: 'Corn' },
+            { aisle: 'Fruit/Veg', name: 'Cucumber' },
+            { aisle: 'Fruit/Veg', name: 'Ginger' },
+            { aisle: 'Fruit/Veg', name: 'Grapes' },
+            { aisle: 'Fruit/Veg', name: 'Lettuce' },
+            { aisle: 'Fruit/Veg', name: 'Mandarins' },
+            { aisle: 'Fruit/Veg', name: 'Mushrooms' },
+            { aisle: 'Fruit/Veg', name: 'Onions' },
+            { aisle: 'Fruit/Veg', name: 'Onions Spring' },
+            { aisle: 'Fruit/Veg', name: 'Pears' },
+            { aisle: 'Fruit/Veg', name: 'Potatoes' },
+            { aisle: 'Fruit/Veg', name: 'Snow peas' },
+            { aisle: 'Fruit/Veg', name: 'Spinach' },
+            { aisle: 'Fruit/Veg', name: 'Strawberries' },
+            { aisle: 'Fruit/Veg', name: 'Zucchini' },
+
+            // Meat/Chilled
+            { aisle: 'Meat/Chilled', name: 'Bacon' },
+            { aisle: 'Meat/Chilled', name: 'Beef Mince' },
+            { aisle: 'Meat/Chilled', name: 'Butter' },
+            { aisle: 'Meat/Chilled', name: 'Chicken Breast' },
+            { aisle: 'Meat/Chilled', name: 'Chicken Thighs' },
+            { aisle: 'Meat/Chilled', name: 'Chicken Whole' },
+            { aisle: 'Meat/Chilled', name: 'Cream' },
+            { aisle: 'Meat/Chilled', name: 'Custards 1L' },
+            { aisle: 'Meat/Chilled', name: 'Eggs' },
+            { aisle: 'Meat/Chilled', name: 'Fish' },
+            { aisle: 'Meat/Chilled', name: 'Fruit cups 1' },
+            { aisle: 'Meat/Chilled', name: 'Ham' },
+            { aisle: 'Meat/Chilled', name: 'Milk' },
+            { aisle: 'Meat/Chilled', name: 'Pouches (yogurt etc)' },
+            { aisle: 'Meat/Chilled', name: 'Salami' },
+            { aisle: 'Meat/Chilled', name: 'Sausages' },
+            { aisle: 'Meat/Chilled', name: 'Steak' },
+            { aisle: 'Meat/Chilled', name: 'Yogurt' },
+
+            // Pet Things
+            { aisle: 'Pet Things', name: 'Cat food' },
+            { aisle: 'Pet Things', name: 'Litter' },
+
+            // Chips
+            { aisle: 'Chips', name: 'Chips' },
+            { aisle: 'Chips', name: 'Doritos' },
+            { aisle: 'Chips', name: 'Eta Ripples' },
+            { aisle: 'Chips', name: 'Grain Waves' },
+
+            // Coffee/Drinks/Tea
+            { aisle: 'Coffee/Drinks/Tea', name: 'Coffee' },
+            { aisle: 'Coffee/Drinks/Tea', name: 'Cordial' },
+            { aisle: 'Coffee/Drinks/Tea', name: 'Milo' },
+            { aisle: 'Coffee/Drinks/Tea', name: 'Orange Juice' },
+            { aisle: 'Coffee/Drinks/Tea', name: 'Soft drink' },
+            { aisle: 'Coffee/Drinks/Tea', name: 'Tea' },
+
+            // Breakfast/Condiments
+            { aisle: 'Breakfast/Condiments', name: 'BBQ sauce' },
+            { aisle: 'Breakfast/Condiments', name: 'Cereal' },
+            { aisle: 'Breakfast/Condiments', name: 'Honey' },
+            { aisle: 'Breakfast/Condiments', name: 'Jam' },
+            { aisle: 'Breakfast/Condiments', name: 'Maple syrup' },
+            { aisle: 'Breakfast/Condiments', name: 'Marmite' },
+            { aisle: 'Breakfast/Condiments', name: 'Nutella' },
+            { aisle: 'Breakfast/Condiments', name: 'Oats' },
+            { aisle: 'Breakfast/Condiments', name: 'Peanut Butter' },
+            { aisle: 'Breakfast/Condiments', name: 'Promite' },
+            { aisle: 'Breakfast/Condiments', name: 'Sweet chilli sauce' },
+            { aisle: 'Breakfast/Condiments', name: 'Tomato sauce' },
+            { aisle: 'Breakfast/Condiments', name: 'Up n Go 12pack' },
+            { aisle: 'Breakfast/Condiments', name: 'Weetbix' },
+
+            // Baking/Choc Sauce/Dried Fruits
+            { aisle: 'Baking/Choc Sauce/Dried Fruits', name: 'Baking powder' },
+            { aisle: 'Baking/Choc Sauce/Dried Fruits', name: 'Baking Soda' },
+            { aisle: 'Baking/Choc Sauce/Dried Fruits', name: 'Chocolate sauce' },
+            { aisle: 'Baking/Choc Sauce/Dried Fruits', name: 'Cocoa' },
+            { aisle: 'Baking/Choc Sauce/Dried Fruits', name: 'Coconut cream' },
+            { aisle: 'Baking/Choc Sauce/Dried Fruits', name: 'Condensed milk' },
+            { aisle: 'Baking/Choc Sauce/Dried Fruits', name: 'Dried fruits' },
+            { aisle: 'Baking/Choc Sauce/Dried Fruits', name: 'High grade flour' },
+            { aisle: 'Baking/Choc Sauce/Dried Fruits', name: 'Oil canola' },
+            { aisle: 'Baking/Choc Sauce/Dried Fruits', name: 'Oil olive' },
+            { aisle: 'Baking/Choc Sauce/Dried Fruits', name: 'Raisins' },
+            { aisle: 'Baking/Choc Sauce/Dried Fruits', name: 'Sugar' },
+            { aisle: 'Baking/Choc Sauce/Dried Fruits', name: 'Vanilla extract' },
+
+            // Bars/Chips/Pretzels/Popcorn
+            { aisle: 'Bars/Chips/Pretzels/Popcorn', name: 'Bars (muesli etc)' },
+            { aisle: 'Bars/Chips/Pretzels/Popcorn', name: 'Muesli Bars' },
+            { aisle: 'Bars/Chips/Pretzels/Popcorn', name: 'Popcorn' },
+            { aisle: 'Bars/Chips/Pretzels/Popcorn', name: 'Pretzels' },
+
+            // Canned/Seasoning/Sauces
+            { aisle: 'Canned/Seasoning/Sauces', name: 'Aioli' },
+            { aisle: 'Canned/Seasoning/Sauces', name: 'Black beans can' },
+            { aisle: 'Canned/Seasoning/Sauces', name: 'Capers' },
+            { aisle: 'Canned/Seasoning/Sauces', name: 'Chickpeas can' },
+            { aisle: 'Canned/Seasoning/Sauces', name: 'Chilli flakes' },
+            { aisle: 'Canned/Seasoning/Sauces', name: 'Corn kernel can' },
+            { aisle: 'Canned/Seasoning/Sauces', name: 'Fish sauce' },
+            { aisle: 'Canned/Seasoning/Sauces', name: 'Garlic paste' },
+            { aisle: 'Canned/Seasoning/Sauces', name: 'Ginger paste' },
+            { aisle: 'Canned/Seasoning/Sauces', name: 'Kidney beans can' },
+            { aisle: 'Canned/Seasoning/Sauces', name: 'Mayo' },
+            { aisle: 'Canned/Seasoning/Sauces', name: 'Mustard' },
+            { aisle: 'Canned/Seasoning/Sauces', name: 'Olives' },
+            { aisle: 'Canned/Seasoning/Sauces', name: 'Oyster sauce' },
+            { aisle: 'Canned/Seasoning/Sauces', name: 'Pepper' },
+            { aisle: 'Canned/Seasoning/Sauces', name: 'Pickles' },
+            { aisle: 'Canned/Seasoning/Sauces', name: 'Salt' },
+            { aisle: 'Canned/Seasoning/Sauces', name: 'Sesame oil' },
+            { aisle: 'Canned/Seasoning/Sauces', name: 'Simmer sauces' },
+            { aisle: 'Canned/Seasoning/Sauces', name: 'Soy sauce' },
+            { aisle: 'Canned/Seasoning/Sauces', name: 'Tomato cans' },
+            { aisle: 'Canned/Seasoning/Sauces', name: 'Tomato paste' },
+            { aisle: 'Canned/Seasoning/Sauces', name: 'Tuna can' },
+            { aisle: 'Canned/Seasoning/Sauces', name: 'Vinegar' },
+
+            // Pasta/Noodles/Stock/Sauces/Tacos/Rice
+            { aisle: 'Pasta/Noodles/Stock/Sauces/Tacos/Rice', name: 'Chicken stock' },
+            { aisle: 'Pasta/Noodles/Stock/Sauces/Tacos/Rice', name: 'Egg noodles' },
+            { aisle: 'Pasta/Noodles/Stock/Sauces/Tacos/Rice', name: 'Lasagna pasta sheets' },
+            { aisle: 'Pasta/Noodles/Stock/Sauces/Tacos/Rice', name: 'Noodles packet' },
+            { aisle: 'Pasta/Noodles/Stock/Sauces/Tacos/Rice', name: 'Pasta sauce (marinara)' },
+            { aisle: 'Pasta/Noodles/Stock/Sauces/Tacos/Rice', name: 'Pasta' },
+            { aisle: 'Pasta/Noodles/Stock/Sauces/Tacos/Rice', name: 'Rice' },
+            { aisle: 'Pasta/Noodles/Stock/Sauces/Tacos/Rice', name: 'Taco seasoning' },
+            { aisle: 'Pasta/Noodles/Stock/Sauces/Tacos/Rice', name: 'Taco shells' },
+            { aisle: 'Pasta/Noodles/Stock/Sauces/Tacos/Rice', name: 'Tortilla wraps' },
+            { aisle: 'Pasta/Noodles/Stock/Sauces/Tacos/Rice', name: 'Vegetable stock' },
+
+            // Paper Towels/Nappy Things/TP
+            { aisle: 'Paper Towels/Nappy Things/TP', name: 'Nappies' },
+            { aisle: 'Paper Towels/Nappy Things/TP', name: 'Paper towels' },
+            { aisle: 'Paper Towels/Nappy Things/TP', name: 'Tissues' },
+            { aisle: 'Paper Towels/Nappy Things/TP', name: 'Toilet paper' },
+            { aisle: 'Paper Towels/Nappy Things/TP', name: 'Wipes' },
+
+            // Biscuits/Crackers
+            { aisle: 'Biscuits/Crackers', name: 'Biscuits' },
+            { aisle: 'Biscuits/Crackers', name: 'Corn Thins' },
+            { aisle: 'Biscuits/Crackers', name: 'Crackers' },
+            { aisle: 'Biscuits/Crackers', name: 'Rice Crackers' },
+            { aisle: 'Biscuits/Crackers', name: 'Shapes' },
+            { aisle: 'Biscuits/Crackers', name: 'Vita Wheats' },
+
+            // Cleaning/Washing products
+            { aisle: 'Cleaning/Washing products', name: 'Dish washing liquid' },
+            { aisle: 'Cleaning/Washing products', name: 'Dishwasher tablet' },
+            { aisle: 'Cleaning/Washing products', name: 'Multi purpose spray' },
+            { aisle: 'Cleaning/Washing products', name: 'Sponge' },
+            { aisle: 'Cleaning/Washing products', name: 'Washing powder' },
+
+            // Frozen
+            { aisle: 'Frozen', name: 'Fish Fingers' },
+            { aisle: 'Frozen', name: 'Frozen vege' },
+            { aisle: 'Frozen', name: 'Hashbrowns' },
+            { aisle: 'Frozen', name: 'Ice cream' },
+            { aisle: 'Frozen', name: 'Ice' },
+            { aisle: 'Frozen', name: 'Peas' },
+            { aisle: 'Frozen', name: 'Pizza' },
+            { aisle: 'Frozen', name: 'Wedges' },
+
+            // Bread/Buns
+            { aisle: 'Bread/Buns', name: 'Bagels' },
+            { aisle: 'Bread/Buns', name: 'Bread' },
+            { aisle: 'Bread/Buns', name: 'Burger buns' },
+            { aisle: 'Bread/Buns', name: 'English muffins' },
+            { aisle: 'Bread/Buns', name: 'Hot dog buns' },
+            { aisle: 'Bread/Buns', name: 'Pita bread' },
+
+            // Womens Products/Shampoo/Soap/Oral
+            { aisle: 'Womens Products/Shampoo/Soap/Oral', name: 'Deodorant' },
+            { aisle: 'Womens Products/Shampoo/Soap/Oral', name: 'Floss' },
+            { aisle: 'Womens Products/Shampoo/Soap/Oral', name: 'Hand wash' },
+            { aisle: 'Womens Products/Shampoo/Soap/Oral', name: 'Shampoo' },
+            { aisle: 'Womens Products/Shampoo/Soap/Oral', name: 'Soap' },
+            { aisle: 'Womens Products/Shampoo/Soap/Oral', name: 'Toothbrush' },
+            { aisle: 'Womens Products/Shampoo/Soap/Oral', name: 'Toothpaste' }
+        ];
+
+        // Convert to structured format with IDs and timestamps
+        return products.map((product, index) => ({
+            id: `product-${Date.now()}-${index}`,
+            name: product.name,
+            aisle: product.aisle,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        }));
+    }
+
+    // Master Product List methods
+    async addProduct(name, aisle) {
+        const product = {
+            id: `product-${Date.now()}`,
+            name: name.trim(),
+            aisle: aisle,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        };
+        this.masterProductList.push(product);
+        await this.save('masterProductList', this.masterProductList);
+    }
+
+    async editProduct(id, name) {
+        const index = this.masterProductList.findIndex(p => p.id === id);
+        if (index !== -1) {
+            this.masterProductList[index].name = name.trim();
+            this.masterProductList[index].updatedAt = new Date().toISOString();
+            await this.save('masterProductList', this.masterProductList);
+        }
+    }
+
+    async deleteProduct(id) {
+        this.masterProductList = this.masterProductList.filter(p => p.id !== id);
+        await this.save('masterProductList', this.masterProductList);
+    }
+
+    getProductsByAisle(aisle) {
+        return this.masterProductList
+            .filter(p => p.aisle === aisle)
+            .sort((a, b) => a.name.localeCompare(b.name));
+    }
+
+    searchProducts(searchTerm) {
+        const term = searchTerm.toLowerCase().trim();
+        if (!term) return this.masterProductList;
+
+        return this.masterProductList.filter(p =>
+            p.name.toLowerCase().includes(term)
+        );
+    }
+
+    getAllAisles() {
+        const aisles = [...new Set(this.masterProductList.map(p => p.aisle))];
+        // Sort aisles in the standard order
+        const aisleOrder = [
+            'Fruit/Veg',
+            'Meat/Chilled',
+            'Pet Things',
+            'Chips',
+            'Coffee/Drinks/Tea',
+            'Breakfast/Condiments',
+            'Baking/Choc Sauce/Dried Fruits',
+            'Bars/Chips/Pretzels/Popcorn',
+            'Canned/Seasoning/Sauces',
+            'Pasta/Noodles/Stock/Sauces/Tacos/Rice',
+            'Paper Towels/Nappy Things/TP',
+            'Biscuits/Crackers',
+            'Cleaning/Washing products',
+            'Frozen',
+            'Bread/Buns',
+            'Womens Products/Shampoo/Soap/Oral',
+            'Misc'
+        ];
+        return aisles.sort((a, b) => {
+            const indexA = aisleOrder.indexOf(a);
+            const indexB = aisleOrder.indexOf(b);
+            if (indexA === -1) return 1;
+            if (indexB === -1) return -1;
+            return indexA - indexB;
+        });
     }
 
     // Meal methods
@@ -557,6 +845,8 @@ class App {
         this.editingCategoryId = null;
         this.isReady = false;
         this.collapsedCategories = new Set(); // Track which shopping categories are collapsed
+        this.collapsedAisles = new Set(); // Track which master product list aisles are collapsed
+        this.productSearchTerm = ''; // Track search term for master product list
     }
 
     async initialize() {
@@ -970,6 +1260,55 @@ class App {
             html += '</div>';
         }
 
+        // All Products Section
+        html += '<div class="section-header" style="margin-top: 24px;">🛍️ All Products</div>';
+        html += '<div class="search-box" style="margin-bottom: 16px;">';
+        html += `<input type="text" id="product-search" placeholder="Search products..." value="${this.productSearchTerm}">`;
+        html += '</div>';
+
+        // Get filtered products
+        const filteredProducts = this.productSearchTerm
+            ? this.store.searchProducts(this.productSearchTerm)
+            : this.store.masterProductList;
+
+        // Group by aisle
+        const aisles = this.store.getAllAisles();
+        const productsByAisle = {};
+        aisles.forEach(aisle => {
+            productsByAisle[aisle] = filteredProducts.filter(p => p.aisle === aisle);
+        });
+
+        // Render collapsible aisles
+        html += '<div class="master-products-list">';
+        aisles.forEach(aisle => {
+            const products = productsByAisle[aisle];
+            if (products.length === 0) return;
+
+            const isCollapsed = this.collapsedAisles.has(aisle);
+            html += `
+                <div class="master-aisle ${isCollapsed ? 'collapsed' : ''}">
+                    <div class="master-aisle-header" data-aisle="${aisle}">
+                        <span class="aisle-toggle">${isCollapsed ? '▶' : '▼'}</span>
+                        <span class="aisle-name">${aisle}</span>
+                        <span class="aisle-count">${products.length} items</span>
+                    </div>
+                    <div class="master-aisle-items">
+                        ${products.map(product => `
+                            <div class="master-product-item" data-id="${product.id}">
+                                <span class="master-product-name">${product.name}</span>
+                                <div class="master-product-actions">
+                                    <button class="icon-btn add-product-btn" data-id="${product.id}" data-name="${product.name}" data-aisle="${product.aisle}" title="Add to shopping list">➕</button>
+                                    <button class="icon-btn edit-product-btn" data-id="${product.id}" data-name="${product.name}" title="Edit name">✏️</button>
+                                    <button class="icon-btn delete-product-btn" data-id="${product.id}" data-name="${product.name}" title="Delete">🗑️</button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        });
+        html += '</div>';
+
         container.innerHTML = html;
 
         // Add click listeners for adding items to shopping list from groups
@@ -1022,6 +1361,71 @@ class App {
                     item.style.transform = '';
                     item.style.opacity = '';
                 }, 200);
+            });
+        });
+
+        // Product search listener
+        const productSearch = document.getElementById('product-search');
+        if (productSearch) {
+            productSearch.addEventListener('input', (e) => {
+                this.productSearchTerm = e.target.value;
+                this.renderCategories();
+            });
+        }
+
+        // Aisle collapse/expand listeners
+        container.querySelectorAll('.master-aisle-header').forEach(header => {
+            header.addEventListener('click', () => {
+                const aisle = header.dataset.aisle;
+                if (this.collapsedAisles.has(aisle)) {
+                    this.collapsedAisles.delete(aisle);
+                } else {
+                    this.collapsedAisles.add(aisle);
+                }
+                this.renderCategories();
+            });
+        });
+
+        // Add product to shopping list
+        container.querySelectorAll('.add-product-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const name = btn.dataset.name;
+                const aisle = btn.dataset.aisle;
+                await this.store.addManualItem(name, aisle);
+                this.renderShoppingList();
+                // Show feedback
+                btn.style.transform = 'scale(1.2)';
+                setTimeout(() => {
+                    btn.style.transform = '';
+                }, 200);
+            });
+        });
+
+        // Edit product name
+        container.querySelectorAll('.edit-product-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const id = btn.dataset.id;
+                const currentName = btn.dataset.name;
+                const newName = prompt(`Edit product name:`, currentName);
+                if (newName && newName.trim() !== '' && newName.trim() !== currentName) {
+                    await this.store.editProduct(id, newName.trim());
+                    this.renderCategories();
+                }
+            });
+        });
+
+        // Delete product
+        container.querySelectorAll('.delete-product-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const id = btn.dataset.id;
+                const name = btn.dataset.name;
+                if (confirm(`Delete "${name}" from master product list? This cannot be undone.`)) {
+                    await this.store.deleteProduct(id);
+                    this.renderCategories();
+                }
             });
         });
     }

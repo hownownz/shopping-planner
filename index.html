@@ -9,7 +9,7 @@
     <title>Shopping Planner</title>
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icon-192.png">
-    <link rel="stylesheet" href="styles.css?v=2">
+    <link rel="stylesheet" href="styles.css?v=3">
 </head>
 <body>
     <div class="app-container">
@@ -56,7 +56,10 @@
             </div>
             
             <div class="add-manual-item">
-                <input type="text" id="manual-item-input" placeholder="Add item manually...">
+                <input type="text" id="manual-item-input" placeholder="Add item manually..." list="known-items-list" autocomplete="off">
+                <datalist id="known-items-list">
+                    <!-- Populated by JavaScript -->
+                </datalist>
                 <select id="manual-item-category">
                     <option value="Fruit/Veg">Fruit/Veg</option>
                     <option value="Meat/Chilled">Meat/Chilled</option>
@@ -247,6 +250,6 @@
         </div>
     </div>
 
-    <script type="module" src="app-firebase.js?v=2"></script>
+    <script type="module" src="app-firebase.js?v=3"></script>
 </body>
 </html>

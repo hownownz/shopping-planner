@@ -8,6 +8,7 @@ class DataStore {
         this.shoppingList = [];
         this.categories = [];
         this.ingredientMappings = {}; // Custom ingredient-to-category mappings
+        this.itemUsageCount = {}; // Track how often items are added to shopping list
         this.isInitialized = false;
         this.syncEnabled = false;
     }
@@ -21,6 +22,7 @@ class DataStore {
         this.shoppingList = this.loadLocal('shoppingList') || [];
         this.categories = this.loadLocal('categories') || this.getDefaultCategories();
         this.ingredientMappings = this.loadLocal('ingredientMappings') || {};
+        this.itemUsageCount = this.loadLocal('itemUsageCount') || {};
 
         // Set up Firebase sync if authenticated
         if (firebaseService.isAuthenticated()) {
@@ -229,12 +231,15 @@ class DataStore {
             const meal = this.meals.find(m => m.id === mealId);
             if (meal) {
                 meal.ingredients.forEach(ingredient => {
+                    const text = ingredient.trim();
                     mealIngredients.push({
-                        text: ingredient.trim(),
+                        text: text,
                         category: this.guessCategory(ingredient),
                         checked: false,
                         source: 'meal'
                     });
+                    // Track usage
+                    this.trackItemUsage(text);
                 });
             }
         });
@@ -360,7 +365,63 @@ class DataStore {
         };
         this.shoppingList.push(item);
         this.shoppingList = this.deduplicateItems(this.shoppingList);
+
+        // Track usage
+        this.trackItemUsage(text.trim());
+
         await this.save('shoppingList', this.shoppingList);
+    }
+
+    // Usage tracking methods
+    trackItemUsage(itemText) {
+        const key = itemText.toLowerCase().trim();
+        this.itemUsageCount[key] = (this.itemUsageCount[key] || 0) + 1;
+        this.save('itemUsageCount', this.itemUsageCount);
+    }
+
+    getFrequentlyUsedItems(limit = 20) {
+        // Convert object to array and sort by count
+        const items = Object.entries(this.itemUsageCount)
+            .map(([text, count]) => ({
+                text: text,
+                count: count,
+                category: this.guessCategory(text)
+            }))
+            .sort((a, b) => b.count - a.count)
+            .slice(0, limit);
+
+        return items;
+    }
+
+    getAllKnownItems() {
+        // Get all unique items from various sources
+        const items = new Set();
+
+        // From meals
+        this.meals.forEach(meal => {
+            meal.ingredients.forEach(ing => {
+                items.add(ing.trim().toLowerCase());
+            });
+        });
+
+        // From usage history
+        Object.keys(this.itemUsageCount).forEach(item => {
+            items.add(item);
+        });
+
+        // From quick-add groups
+        this.categories.forEach(cat => {
+            cat.items.forEach(item => {
+                items.add(item.trim().toLowerCase());
+            });
+        });
+
+        // Convert to array with metadata
+        return Array.from(items).map(text => ({
+            text: text,
+            count: this.itemUsageCount[text] || 0,
+            category: this.guessCategory(text)
+        })).sort((a, b) => a.text.localeCompare(b.text));
     }
 
     async toggleItemChecked(text) {
@@ -628,6 +689,7 @@ class App {
                 break;
             case 'shopping':
                 this.renderShoppingList();
+                this.populateAutocomplete();
                 break;
             case 'categories':
                 this.renderCategories();
@@ -636,6 +698,21 @@ class App {
                 this.renderDatabase();
                 break;
         }
+    }
+
+    populateAutocomplete() {
+        const datalist = document.getElementById('known-items-list');
+        if (!datalist) return;
+
+        const allItems = this.store.getAllKnownItems();
+        // Show top 100 most frequent items in autocomplete
+        const topItems = allItems
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 100);
+
+        datalist.innerHTML = topItems.map(item => `
+            <option value="${item.text}"></option>
+        `).join('');
     }
 
     renderMealsList(searchTerm = '') {
@@ -848,17 +925,13 @@ class App {
     renderCategories() {
         const container = document.getElementById('categories-list');
 
-        if (this.store.categories.length === 0) {
-            container.innerHTML = `
-                <div class="empty-state">
-                    <div class="empty-state-icon">⚡</div>
-                    <div class="empty-state-text">No quick-add groups yet. Click "+ Add Group" to create one!</div>
-                </div>
-            `;
-            return;
-        }
+        let html = '';
 
-        container.innerHTML = this.store.categories.map(category => `
+        // Quick-Add Groups Section
+        if (this.store.categories.length > 0) {
+            html += '<div class="section-header">📦 Quick-Add Groups</div>';
+            html += '<div class="categories-grid">';
+            html += this.store.categories.map(category => `
             <div class="category-card">
                 <div class="category-card-main" data-id="${category.id}">
                     <div class="category-icon">${category.icon}</div>
@@ -873,8 +946,33 @@ class App {
                 </div>
             </div>
         `).join('');
+            html += '</div>'; // Close categories-grid
+        } else {
+            html += `
+                <div class="empty-state">
+                    <div class="empty-state-icon">⚡</div>
+                    <div class="empty-state-text">No quick-add groups yet. Click "+ Add Group" to create one!</div>
+                </div>
+            `;
+        }
 
-        // Add click listeners for adding items to shopping list
+        // Frequently Used Section
+        const frequentItems = this.store.getFrequentlyUsedItems(18);
+        if (frequentItems.length > 0) {
+            html += '<div class="section-header" style="margin-top: 24px;">⭐ Frequently Used</div>';
+            html += '<div class="frequent-items-grid">';
+            html += frequentItems.map(item => `
+                <div class="frequent-item" data-text="${item.text}" data-category="${item.category}">
+                    <span class="frequent-item-text">${item.text}</span>
+                    <span class="frequent-item-count">×${item.count}</span>
+                </div>
+            `).join('');
+            html += '</div>';
+        }
+
+        container.innerHTML = html;
+
+        // Add click listeners for adding items to shopping list from groups
         container.querySelectorAll('.category-card-main').forEach(card => {
             card.addEventListener('click', async () => {
                 const id = card.dataset.id;
@@ -907,6 +1005,23 @@ class App {
                     await this.store.deleteCategory(id);
                     this.renderCategories();
                 }
+            });
+        });
+
+        // Add click listeners for frequent items
+        container.querySelectorAll('.frequent-item').forEach(item => {
+            item.addEventListener('click', async () => {
+                const text = item.dataset.text;
+                const category = item.dataset.category;
+                await this.store.addManualItem(text, category);
+                this.renderShoppingList();
+                // Show feedback
+                item.style.transform = 'scale(0.95)';
+                item.style.opacity = '0.7';
+                setTimeout(() => {
+                    item.style.transform = '';
+                    item.style.opacity = '';
+                }, 200);
             });
         });
     }

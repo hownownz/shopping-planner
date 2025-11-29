@@ -715,6 +715,16 @@ class DataStore {
         })).sort((a, b) => a.text.localeCompare(b.text));
     }
 
+    // Get meals that use a specific product/ingredient
+    getMealsUsingProduct(productName) {
+        const searchTerm = productName.toLowerCase();
+        return this.meals.filter(meal => {
+            return meal.ingredients.some(ing =>
+                ing.toLowerCase().includes(searchTerm)
+            );
+        });
+    }
+
     async toggleItemChecked(text) {
         const item = this.shoppingList.find(i => i.text.toLowerCase() === text.toLowerCase());
         if (item) {
@@ -725,6 +735,13 @@ class DataStore {
 
     async removeItem(text) {
         this.shoppingList = this.shoppingList.filter(i => i.text.toLowerCase() !== text.toLowerCase());
+        await this.save('shoppingList', this.shoppingList);
+    }
+
+    async uncheckAllItems() {
+        this.shoppingList.forEach(item => {
+            item.checked = false;
+        });
         await this.save('shoppingList', this.shoppingList);
     }
 
@@ -853,6 +870,7 @@ class App {
         this.productSearchTerm = ''; // Track search term for master product list
         this.productSearchHadFocus = false; // Track if product search box has/had focus
         this.userHasInteractedWithAisles = false; // Track if user has manually collapsed/expanded aisles
+        this.productSortMode = 'alphabetical'; // Track sort mode for products: 'alphabetical' or 'frequency'
     }
 
     async initialize() {
@@ -936,6 +954,7 @@ class App {
         document.getElementById('manual-item-input').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') this.addManualItem();
         });
+        document.getElementById('uncheck-all-btn').addEventListener('click', () => this.uncheckAllItems());
         document.getElementById('clear-checked-btn').addEventListener('click', () => this.clearCheckedItems());
         document.getElementById('clear-list-btn').addEventListener('click', () => this.clearAllItems());
         document.getElementById('clear-meals-btn').addEventListener('click', () => this.clearSelectedMeals());
@@ -1290,6 +1309,10 @@ class App {
         html += '<div class="search-box" style="flex: 1; margin: 0;">';
         html += `<input type="text" id="product-search" placeholder="Search products..." value="${this.productSearchTerm}">`;
         html += '</div>';
+        html += '<select id="product-sort-mode" style="padding: 8px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px;">';
+        html += `<option value="alphabetical" ${this.productSortMode === 'alphabetical' ? 'selected' : ''}>Sort A-Z</option>`;
+        html += `<option value="frequency" ${this.productSortMode === 'frequency' ? 'selected' : ''}>Sort by Usage</option>`;
+        html += '</select>';
         html += '<button class="btn-secondary" id="collapse-all-aisles-btn" style="white-space: nowrap;">Collapse All</button>';
         html += '<button class="btn-secondary" id="expand-all-aisles-btn" style="white-space: nowrap;">Expand All</button>';
         html += '</div>';
@@ -1303,7 +1326,25 @@ class App {
         const aisles = this.store.getAllAisles();
         const productsByAisle = {};
         aisles.forEach(aisle => {
-            productsByAisle[aisle] = filteredProducts.filter(p => p.aisle === aisle);
+            let products = filteredProducts.filter(p => p.aisle === aisle);
+
+            // Sort products within each aisle
+            if (this.productSortMode === 'frequency') {
+                // Sort by usage count (descending), then alphabetically
+                products.sort((a, b) => {
+                    const countA = this.store.itemUsageCount[a.name.toLowerCase()] || 0;
+                    const countB = this.store.itemUsageCount[b.name.toLowerCase()] || 0;
+                    if (countB !== countA) {
+                        return countB - countA; // Higher count first
+                    }
+                    return a.name.localeCompare(b.name); // Alphabetical tie-breaker
+                });
+            } else {
+                // Sort alphabetically (default)
+                products.sort((a, b) => a.name.localeCompare(b.name));
+            }
+
+            productsByAisle[aisle] = products;
         });
 
         // Initialize all aisles as collapsed on first render (if user hasn't interacted and not searching)
@@ -1328,16 +1369,32 @@ class App {
                         <span class="aisle-count">${products.length} items</span>
                     </div>
                     <div class="master-aisle-items">
-                        ${products.map(product => `
-                            <div class="master-product-item" data-id="${product.id}">
-                                <span class="master-product-name">${product.name}</span>
-                                <div class="master-product-actions">
-                                    <button class="icon-btn add-product-btn" data-id="${product.id}" data-name="${product.name}" data-aisle="${product.aisle}" title="Add to shopping list">➕</button>
-                                    <button class="icon-btn edit-product-btn" data-id="${product.id}" data-name="${product.name}" data-aisle="${product.aisle}" title="Edit">✏️</button>
-                                    <button class="icon-btn delete-product-btn" data-id="${product.id}" data-name="${product.name}" title="Delete">🗑️</button>
+                        ${products.map(product => {
+                            const usageCount = this.store.itemUsageCount[product.name.toLowerCase()] || 0;
+                            const showUsage = this.productSortMode === 'frequency' && usageCount > 0;
+                            const mealsUsing = this.store.getMealsUsingProduct(product.name);
+                            const mealCount = mealsUsing.length;
+                            return `
+                                <div class="master-product-item" data-id="${product.id}">
+                                    <div style="display: flex; flex-direction: column; flex: 1; min-width: 0;">
+                                        <span class="master-product-name">
+                                            ${product.name}
+                                            ${showUsage ? `<span style="color: #999; font-size: 12px; margin-left: 8px;">×${usageCount}</span>` : ''}
+                                        </span>
+                                        ${mealCount > 0 ? `
+                                            <span style="color: #666; font-size: 11px; margin-top: 2px;" title="${mealsUsing.map(m => m.name).join(', ')}">
+                                                Used in ${mealCount} meal${mealCount > 1 ? 's' : ''}: ${mealsUsing.slice(0, 3).map(m => m.name).join(', ')}${mealCount > 3 ? '...' : ''}
+                                            </span>
+                                        ` : ''}
+                                    </div>
+                                    <div class="master-product-actions">
+                                        <button class="icon-btn add-product-btn" data-id="${product.id}" data-name="${product.name}" data-aisle="${product.aisle}" title="Add to shopping list">➕</button>
+                                        <button class="icon-btn edit-product-btn" data-id="${product.id}" data-name="${product.name}" data-aisle="${product.aisle}" title="Edit">✏️</button>
+                                        <button class="icon-btn delete-product-btn" data-id="${product.id}" data-name="${product.name}" title="Delete">🗑️</button>
+                                    </div>
                                 </div>
-                            </div>
-                        `).join('')}
+                            `;
+                        }).join('')}
                     </div>
                 </div>
             `;
@@ -1398,6 +1455,15 @@ class App {
                 }, 200);
             });
         });
+
+        // Product sort mode listener
+        const productSortMode = document.getElementById('product-sort-mode');
+        if (productSortMode) {
+            productSortMode.addEventListener('change', (e) => {
+                this.productSortMode = e.target.value;
+                this.renderCategories();
+            });
+        }
 
         // Product search listener
         const productSearch = document.getElementById('product-search');
@@ -1772,6 +1838,22 @@ class App {
             return;
         }
 
+        // Check for duplicates (case-insensitive)
+        const existingProduct = this.store.masterProductList.find(
+            p => p.name.toLowerCase() === name.toLowerCase()
+        );
+
+        if (existingProduct) {
+            const message = `"${name}" already exists in ${existingProduct.aisle} aisle.\n\n` +
+                `Do you want to:\n` +
+                `• OK = Add anyway (will create duplicate)\n` +
+                `• Cancel = Don't add`;
+
+            if (!confirm(message)) {
+                return; // User chose not to add duplicate
+            }
+        }
+
         await this.store.addProduct(name, aisle);
         this.closeProductModal();
         this.renderCategories();
@@ -1817,6 +1899,13 @@ class App {
         if (text) {
             await this.store.addManualItem(text, select.value);
             input.value = '';
+            this.renderShoppingList();
+        }
+    }
+
+    async uncheckAllItems() {
+        if (confirm('Uncheck all items? (Items will remain in the list)')) {
+            await this.store.uncheckAllItems();
             this.renderShoppingList();
         }
     }

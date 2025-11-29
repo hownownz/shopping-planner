@@ -9,10 +9,15 @@
     <title>Shopping Planner</title>
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icon-192.png">
-    <link rel="stylesheet" href="styles.css?v=8">
+    <link rel="stylesheet" href="styles.css?v=9">
 </head>
 <body>
     <div class="app-container">
+        <!-- Dark Mode Toggle -->
+        <button class="dark-mode-toggle" id="dark-mode-toggle" title="Toggle dark mode">
+            <span class="toggle-icon">🌙</span>
+        </button>
+
         <!-- Navigation -->
         <nav class="bottom-nav">
             <button class="nav-btn active" data-view="meals">
@@ -339,6 +344,6 @@
         </div>
     </div>
 
-    <script type="module" src="app-firebase.js?v=8"></script>
+    <script type="module" src="app-firebase.js?v=9"></script>
 </body>
 </html>

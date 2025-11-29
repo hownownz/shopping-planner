@@ -719,9 +719,18 @@ class DataStore {
     getMealsUsingProduct(productName) {
         const searchTerm = productName.toLowerCase();
         return this.meals.filter(meal => {
-            return meal.ingredients.some(ing =>
-                ing.toLowerCase().includes(searchTerm)
-            );
+            return meal.ingredients.some(ing => {
+                const ingredient = ing.toLowerCase();
+
+                // Use word boundary matching to avoid partial matches
+                // e.g., "corn" should not match "corn chips" or "corn tin"
+                // but should match "corn", "2 corn", "corn cobs", etc.
+
+                // Create regex with word boundaries
+                // \b matches word boundaries (start/end of word)
+                const regex = new RegExp(`\\b${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+                return regex.test(ingredient);
+            });
         });
     }
 
@@ -876,7 +885,7 @@ class App {
     async initialize() {
         // Check authentication
         await firebaseService.initialize();
-        
+
         if (!firebaseService.isAuthenticated()) {
             window.location.href = 'login.html';
             return;
@@ -884,13 +893,45 @@ class App {
 
         // Initialize data store
         await this.store.initialize();
-        
+
+        // Initialize dark mode
+        this.initDarkMode();
+
         this.initEventListeners();
         this.render();
         this.isReady = true;
-        
+
         // Add logout button
         this.addLogoutButton();
+    }
+
+    initDarkMode() {
+        // Check if dark mode preference is saved
+        const isDarkMode = localStorage.getItem('darkMode') === 'true';
+
+        if (isDarkMode) {
+            document.body.classList.add('dark-mode');
+            this.updateDarkModeIcon(true);
+        }
+
+        // Add event listener to toggle button
+        const toggleBtn = document.getElementById('dark-mode-toggle');
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', () => this.toggleDarkMode());
+        }
+    }
+
+    toggleDarkMode() {
+        const isDarkMode = document.body.classList.toggle('dark-mode');
+        localStorage.setItem('darkMode', isDarkMode);
+        this.updateDarkModeIcon(isDarkMode);
+    }
+
+    updateDarkModeIcon(isDarkMode) {
+        const icon = document.querySelector('.toggle-icon');
+        if (icon) {
+            icon.textContent = isDarkMode ? '☀️' : '🌙';
+        }
     }
 
     addLogoutButton() {

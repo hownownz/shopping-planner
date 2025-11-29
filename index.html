@@ -9,7 +9,7 @@
     <title>Shopping Planner</title>
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icon-192.png">
-    <link rel="stylesheet" href="styles.css?v=5">
+    <link rel="stylesheet" href="styles.css?v=6">
 </head>
 <body>
     <div class="app-container">
@@ -293,6 +293,46 @@
         </div>
     </div>
 
-    <script type="module" src="app-firebase.js?v=5"></script>
+    <!-- Modal for editing products in master list -->
+    <div class="modal" id="edit-product-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Edit Product</h2>
+                <button class="close-btn" id="close-edit-product-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <label>Product Name</label>
+                <input type="text" id="edit-product-name-input" placeholder="e.g., Avocados">
+
+                <label>Aisle Category</label>
+                <select id="edit-product-aisle-select">
+                    <option value="Fruit/Veg">Fruit/Veg</option>
+                    <option value="Meat/Chilled">Meat/Chilled</option>
+                    <option value="Pet Things">Pet Things</option>
+                    <option value="Chips">Chips</option>
+                    <option value="Coffee/Drinks/Tea">Coffee/Drinks/Tea</option>
+                    <option value="Breakfast/Condiments">Breakfast/Condiments</option>
+                    <option value="Baking/Choc Sauce/Dried Fruits">Baking/Choc/Dried Fruits</option>
+                    <option value="Bars/Chips/Pretzels/Popcorn">Bars/Snacks</option>
+                    <option value="Canned/Seasoning/Sauces">Canned/Seasoning/Sauces</option>
+                    <option value="Pasta/Noodles/Stock/Sauces/Tacos/Rice">Pasta/Rice/Noodles</option>
+                    <option value="Paper Towels/Nappy Things/TP">Paper/Nappy/TP</option>
+                    <option value="Biscuits/Crackers">Biscuits/Crackers</option>
+                    <option value="Cleaning/Washing products">Cleaning Products</option>
+                    <option value="Frozen">Frozen</option>
+                    <option value="Bread/Buns">Bread/Buns</option>
+                    <option value="Womens Products/Shampoo/Soap/Oral">Personal Care</option>
+                    <option value="Misc">Misc</option>
+                </select>
+
+                <div class="modal-actions">
+                    <button class="btn-secondary" id="cancel-edit-product-btn">Cancel</button>
+                    <button class="btn-primary" id="save-edit-product-btn">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="app-firebase.js?v=6"></script>
 </body>
 </html>

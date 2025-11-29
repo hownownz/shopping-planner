@@ -395,10 +395,13 @@ class DataStore {
         await this.save('masterProductList', this.masterProductList);
     }
 
-    async editProduct(id, name) {
+    async editProduct(id, name, aisle = null) {
         const index = this.masterProductList.findIndex(p => p.id === id);
         if (index !== -1) {
             this.masterProductList[index].name = name.trim();
+            if (aisle) {
+                this.masterProductList[index].aisle = aisle;
+            }
             this.masterProductList[index].updatedAt = new Date().toISOString();
             await this.save('masterProductList', this.masterProductList);
         }
@@ -843,9 +846,10 @@ class App {
         this.currentView = 'meals';
         this.editingMealId = null;
         this.editingCategoryId = null;
+        this.editingProductId = null;
         this.isReady = false;
         this.collapsedCategories = new Set(); // Track which shopping categories are collapsed
-        this.collapsedAisles = new Set(); // Track which master product list aisles are collapsed
+        this.collapsedAisles = new Set(); // Track which master product list aisles are collapsed - start all collapsed
         this.productSearchTerm = ''; // Track search term for master product list
     }
 
@@ -914,6 +918,11 @@ class App {
         document.getElementById('close-product-modal').addEventListener('click', () => this.closeProductModal());
         document.getElementById('cancel-product-btn').addEventListener('click', () => this.closeProductModal());
         document.getElementById('save-product-btn').addEventListener('click', () => this.saveProduct());
+
+        // Edit Product modal
+        document.getElementById('close-edit-product-modal').addEventListener('click', () => this.closeEditProductModal());
+        document.getElementById('cancel-edit-product-btn').addEventListener('click', () => this.closeEditProductModal());
+        document.getElementById('save-edit-product-btn').addEventListener('click', () => this.saveEditProduct());
 
         // Meal search
         document.getElementById('meal-search').addEventListener('input', (e) => {
@@ -1284,6 +1293,13 @@ class App {
             productsByAisle[aisle] = filteredProducts.filter(p => p.aisle === aisle);
         });
 
+        // Initialize all aisles as collapsed on first render (if not searching)
+        if (this.collapsedAisles.size === 0 && !this.productSearchTerm) {
+            aisles.forEach(aisle => {
+                this.collapsedAisles.add(aisle);
+            });
+        }
+
         // Render collapsible aisles
         html += '<div class="master-products-list">';
         aisles.forEach(aisle => {
@@ -1304,7 +1320,7 @@ class App {
                                 <span class="master-product-name">${product.name}</span>
                                 <div class="master-product-actions">
                                     <button class="icon-btn add-product-btn" data-id="${product.id}" data-name="${product.name}" data-aisle="${product.aisle}" title="Add to shopping list">➕</button>
-                                    <button class="icon-btn edit-product-btn" data-id="${product.id}" data-name="${product.name}" title="Edit name">✏️</button>
+                                    <button class="icon-btn edit-product-btn" data-id="${product.id}" data-name="${product.name}" data-aisle="${product.aisle}" title="Edit">✏️</button>
                                     <button class="icon-btn delete-product-btn" data-id="${product.id}" data-name="${product.name}" title="Delete">🗑️</button>
                                 </div>
                             </div>
@@ -1410,15 +1426,12 @@ class App {
 
         // Edit product name
         container.querySelectorAll('.edit-product-btn').forEach(btn => {
-            btn.addEventListener('click', async (e) => {
+            btn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const id = btn.dataset.id;
                 const currentName = btn.dataset.name;
-                const newName = prompt(`Edit product name:`, currentName);
-                if (newName && newName.trim() !== '' && newName.trim() !== currentName) {
-                    await this.store.editProduct(id, newName.trim());
-                    this.renderCategories();
-                }
+                const currentAisle = btn.dataset.aisle;
+                this.openEditProductModal(id, currentName, currentAisle);
             });
         });
 
@@ -1687,6 +1700,38 @@ class App {
 
         await this.store.addProduct(name, aisle);
         this.closeProductModal();
+        this.renderCategories();
+    }
+
+    openEditProductModal(productId, currentName, currentAisle) {
+        this.editingProductId = productId;
+        const modal = document.getElementById('edit-product-modal');
+        const nameInput = document.getElementById('edit-product-name-input');
+        const aisleSelect = document.getElementById('edit-product-aisle-select');
+
+        nameInput.value = currentName;
+        aisleSelect.value = currentAisle;
+
+        modal.classList.add('active');
+        nameInput.focus();
+    }
+
+    closeEditProductModal() {
+        document.getElementById('edit-product-modal').classList.remove('active');
+        this.editingProductId = null;
+    }
+
+    async saveEditProduct() {
+        const name = document.getElementById('edit-product-name-input').value.trim();
+        const aisle = document.getElementById('edit-product-aisle-select').value;
+
+        if (!name) {
+            alert('Please enter a product name');
+            return;
+        }
+
+        await this.store.editProduct(this.editingProductId, name, aisle);
+        this.closeEditProductModal();
         this.renderCategories();
     }
 

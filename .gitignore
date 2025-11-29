@@ -9,6 +9,9 @@
 # Claude Code
 .claude/
 
+# Local project files (not for git)
+.local/
+
 # OS Files
 Thumbs.db
 ehthumbs.db

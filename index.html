@@ -9,7 +9,7 @@
     <title>Shopping Planner</title>
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icon-192.png">
-    <link rel="stylesheet" href="styles.css?v=10">
+    <link rel="stylesheet" href="styles.css?v=11">
 </head>
 <body>
     <div class="app-container">
@@ -118,6 +118,8 @@
                 <h1>Meal Database</h1>
                 <div class="header-actions">
                     <button class="btn-secondary" id="sort-alphabetically-btn">Sort A-Z</button>
+                    <button class="btn-secondary" id="consolidate-ingredients-btn">Clean Up Ingredients</button>
+                    <button class="btn-secondary" id="reset-stats-btn">Reset Statistics</button>
                     <button class="btn-secondary" id="manage-ingredients-btn">Manage Ingredients</button>
                     <button class="btn-secondary" id="export-data-btn">Export</button>
                     <button class="btn-primary" id="add-meal-btn">+ Add Meal</button>
@@ -354,6 +356,47 @@
         </div>
     </div>
 
-    <script type="module" src="app-firebase.js?v=10"></script>
+    <!-- Modal for ingredient consolidation -->
+    <div class="modal" id="consolidate-modal">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <h2>Clean Up Ingredients</h2>
+                <button class="close-btn" id="close-consolidate-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 15px; color: #666;">
+                    This tool finds ingredient names in your meals that don't match products in your master list.
+                    It suggests matches so you can fix typos and inconsistencies (e.g., "Potatos" → "Potatoes").
+                </p>
+
+                <div id="consolidate-loading" style="text-align: center; padding: 40px;">
+                    <p>Analyzing meal ingredients...</p>
+                </div>
+
+                <div id="consolidate-results" style="display: none;">
+                    <div style="margin-bottom: 15px; padding: 10px; background: #f0f9ff; border-left: 3px solid #3b82f6; border-radius: 4px;">
+                        <strong id="mismatch-count">0</strong> ingredient mismatches found
+                    </div>
+
+                    <div id="consolidate-list" style="max-height: 500px; overflow-y: auto;">
+                        <!-- Populated by JS -->
+                    </div>
+
+                    <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end;">
+                        <button class="btn-secondary" id="close-consolidate-btn">Close</button>
+                        <button class="btn-primary" id="apply-consolidation-btn" disabled>Apply Selected Changes</button>
+                    </div>
+                </div>
+
+                <div id="consolidate-empty" style="display: none; text-align: center; padding: 40px; color: #666;">
+                    <p style="font-size: 18px; margin-bottom: 10px;">✓ All Clear!</p>
+                    <p>All meal ingredients match products in your master list.</p>
+                    <button class="btn-secondary" id="close-consolidate-empty-btn" style="margin-top: 20px;">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="app-firebase.js?v=11"></script>
 </body>
 </html>

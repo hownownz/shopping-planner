@@ -750,6 +750,141 @@ class DataStore {
         });
     }
 
+    // Reset usage statistics
+    async resetUsageStatistics() {
+        this.itemUsageCount = {};
+        await this.save('itemUsageCount', this.itemUsageCount);
+    }
+
+    // Ingredient consolidation methods
+    cleanIngredientName(ingredient) {
+        // Remove quantities and measurements from ingredient string
+        return ingredient.toLowerCase().trim()
+            .replace(/^[\d\/\.\s]+/g, '') // Remove leading numbers/fractions
+            .replace(/^\d+\s*(g|kg|ml|l|cup|cups|tbsp|tsp|can|tin|packet|cans|tins|packets)s?\s+/gi, '') // Remove measurements
+            .trim();
+    }
+
+    // Levenshtein distance for fuzzy matching
+    levenshteinDistance(str1, str2) {
+        const m = str1.length;
+        const n = str2.length;
+        const dp = Array(m + 1).fill(null).map(() => Array(n + 1).fill(0));
+
+        for (let i = 0; i <= m; i++) dp[i][0] = i;
+        for (let j = 0; j <= n; j++) dp[0][j] = j;
+
+        for (let i = 1; i <= m; i++) {
+            for (let j = 1; j <= n; j++) {
+                if (str1[i - 1] === str2[j - 1]) {
+                    dp[i][j] = dp[i - 1][j - 1];
+                } else {
+                    dp[i][j] = 1 + Math.min(
+                        dp[i - 1][j],     // deletion
+                        dp[i][j - 1],     // insertion
+                        dp[i - 1][j - 1]  // substitution
+                    );
+                }
+            }
+        }
+
+        return dp[m][n];
+    }
+
+    // Calculate similarity score (0-1, higher is more similar)
+    similarityScore(str1, str2) {
+        const maxLen = Math.max(str1.length, str2.length);
+        if (maxLen === 0) return 1.0;
+        const distance = this.levenshteinDistance(str1, str2);
+        return 1.0 - (distance / maxLen);
+    }
+
+    // Find ingredient mismatches and suggest matches
+    findIngredientMismatches() {
+        // Get all unique ingredient names from meals
+        const ingredientSet = new Set();
+        this.meals.forEach(meal => {
+            meal.ingredients.forEach(ing => {
+                const cleaned = this.cleanIngredientName(ing);
+                if (cleaned) {
+                    ingredientSet.add(cleaned);
+                }
+            });
+        });
+
+        // Get all product names from master list (lowercased)
+        const masterProductNames = this.masterProductList.map(p => p.name.toLowerCase());
+        const masterProductSet = new Set(masterProductNames);
+
+        // Find ingredients that don't match any master product
+        const mismatches = [];
+
+        ingredientSet.forEach(ingredient => {
+            // Check if ingredient exists in master list (exact match)
+            if (!masterProductSet.has(ingredient)) {
+                // Find best matches using fuzzy matching
+                const matches = masterProductNames
+                    .map(productName => ({
+                        productName: productName,
+                        score: this.similarityScore(ingredient, productName)
+                    }))
+                    .filter(m => m.score > 0.5) // Only suggest if similarity > 50%
+                    .sort((a, b) => b.score - a.score)
+                    .slice(0, 3); // Top 3 matches
+
+                // Count how many meals use this ingredient
+                const mealsUsingCount = this.meals.filter(meal =>
+                    meal.ingredients.some(ing => this.cleanIngredientName(ing) === ingredient)
+                ).length;
+
+                if (matches.length > 0) {
+                    mismatches.push({
+                        ingredient: ingredient,
+                        mealsCount: mealsUsingCount,
+                        suggestedMatches: matches
+                    });
+                }
+            }
+        });
+
+        // Sort by number of meals using the ingredient (descending)
+        return mismatches.sort((a, b) => b.mealsCount - a.mealsCount);
+    }
+
+    // Apply ingredient consolidation (rename ingredients in meals)
+    async consolidateIngredients(changes) {
+        // changes is an array of {from: 'old name', to: 'new name'}
+        let updatedCount = 0;
+
+        this.meals.forEach(meal => {
+            let modified = false;
+            meal.ingredients = meal.ingredients.map(ing => {
+                const cleaned = this.cleanIngredientName(ing);
+
+                // Check if this ingredient should be changed
+                const change = changes.find(c => c.from === cleaned);
+                if (change) {
+                    // Replace the cleaned part with the new name, preserving quantities
+                    const quantityMatch = ing.match(/^([\d\/\.\s]+[\d]+\s*(?:g|kg|ml|l|cup|cups|tbsp|tsp|can|tin|packet|cans|tins|packets)?s?\s+)/i);
+                    const newIng = quantityMatch ? quantityMatch[1] + change.to : change.to;
+                    modified = true;
+                    updatedCount++;
+                    return newIng;
+                }
+                return ing;
+            });
+
+            if (modified) {
+                // No need to await individual saves, we'll save all meals at once
+            }
+        });
+
+        // Save all meals at once
+        await this.save('meals', this.meals);
+
+        return updatedCount;
+    }
+
     async toggleItemChecked(text) {
         const item = this.shoppingList.find(i => i.text.toLowerCase() === text.toLowerCase());
         if (item) {
@@ -1116,6 +1251,16 @@ class App {
         document.getElementById('new-ingredient-input').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') this.addIngredientMapping();
         });
+
+        // Reset statistics
+        document.getElementById('reset-stats-btn').addEventListener('click', () => this.resetStatistics());
+
+        // Ingredient consolidation
+        document.getElementById('consolidate-ingredients-btn').addEventListener('click', () => this.openConsolidateModal());
+        document.getElementById('close-consolidate-modal').addEventListener('click', () => this.closeConsolidateModal());
+        document.getElementById('close-consolidate-btn').addEventListener('click', () => this.closeConsolidateModal());
+        document.getElementById('close-consolidate-empty-btn').addEventListener('click', () => this.closeConsolidateModal());
+        document.getElementById('apply-consolidation-btn').addEventListener('click', () => this.applyConsolidation());
 
         // Bulk mode toggle
         document.getElementById('toggle-bulk-mode-btn').addEventListener('click', () => this.toggleBulkMode());
@@ -2494,6 +2639,153 @@ class App {
 
         // Reset file input so same file can be imported again
         event.target.value = '';
+    }
+
+    // Reset Statistics
+    async resetStatistics() {
+        const message =
+            'This will reset ALL usage statistics:\n\n' +
+            '• Item usage counts (for frequency sorting)\n' +
+            '• Recently Used section (top 15 products)\n\n' +
+            'Your products and meals will NOT be affected.\n\n' +
+            'Continue?';
+
+        if (!confirm(message)) return;
+
+        await this.store.resetUsageStatistics();
+
+        // Refresh views
+        if (this.currentView === 'categories') {
+            this.renderCategories();
+        }
+
+        alert('Usage statistics have been reset!');
+    }
+
+    // Ingredient Consolidation
+    openConsolidateModal() {
+        const modal = document.getElementById('consolidate-modal');
+        modal.classList.add('active');
+
+        // Show loading state
+        document.getElementById('consolidate-loading').style.display = 'block';
+        document.getElementById('consolidate-results').style.display = 'none';
+        document.getElementById('consolidate-empty').style.display = 'none';
+
+        // Run analysis asynchronously
+        setTimeout(() => {
+            this.analyzeIngredients();
+        }, 100);
+    }
+
+    closeConsolidateModal() {
+        const modal = document.getElementById('consolidate-modal');
+        modal.classList.remove('active');
+    }
+
+    analyzeIngredients() {
+        const mismatches = this.store.findIngredientMismatches();
+
+        if (mismatches.length === 0) {
+            // No mismatches found
+            document.getElementById('consolidate-loading').style.display = 'none';
+            document.getElementById('consolidate-empty').style.display = 'block';
+            return;
+        }
+
+        // Show results
+        document.getElementById('consolidate-loading').style.display = 'none';
+        document.getElementById('consolidate-results').style.display = 'block';
+        document.getElementById('mismatch-count').textContent = mismatches.length;
+
+        // Render the list
+        const container = document.getElementById('consolidate-list');
+        container.innerHTML = mismatches.map((mismatch, index) => `
+            <div class="consolidate-item" style="padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 12px; background: #fff;">
+                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
+                    <div>
+                        <div style="font-weight: 600; color: #dc3545; font-size: 15px;">"${mismatch.ingredient}"</div>
+                        <div style="color: #666; font-size: 13px; margin-top: 4px;">Used in ${mismatch.mealsCount} meal${mismatch.mealsCount === 1 ? '' : 's'}</div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 12px;">
+                    <div style="font-size: 13px; color: #666; margin-bottom: 8px;">Suggested matches:</div>
+                    ${mismatch.suggestedMatches.map((match, matchIndex) => `
+                        <label style="display: flex; align-items: center; padding: 8px; background: #f8f9fa; border-radius: 4px; margin-bottom: 6px; cursor: pointer; transition: background 0.2s;">
+                            <input
+                                type="radio"
+                                name="mismatch-${index}"
+                                value="${match.productName}"
+                                data-from="${mismatch.ingredient}"
+                                data-to="${match.productName}"
+                                style="margin-right: 10px;"
+                                ${matchIndex === 0 ? 'checked' : ''}
+                            />
+                            <div style="flex: 1;">
+                                <span style="font-weight: 500;">${match.productName}</span>
+                                <span style="color: #666; margin-left: 8px; font-size: 12px;">(${Math.round(match.score * 100)}% match)</span>
+                            </div>
+                        </label>
+                    `).join('')}
+                    <label style="display: flex; align-items: center; padding: 8px; background: #f8f9fa; border-radius: 4px; cursor: pointer;">
+                        <input
+                            type="radio"
+                            name="mismatch-${index}"
+                            value=""
+                            style="margin-right: 10px;"
+                        />
+                        <span style="color: #666; font-style: italic;">Skip (don't change)</span>
+                    </label>
+                </div>
+            </div>
+        `).join('');
+
+        // Enable apply button
+        document.getElementById('apply-consolidation-btn').disabled = false;
+    }
+
+    async applyConsolidation() {
+        // Collect selected changes
+        const changes = [];
+        const container = document.getElementById('consolidate-list');
+        const radios = container.querySelectorAll('input[type="radio"]:checked');
+
+        radios.forEach(radio => {
+            if (radio.value) { // Skip if "don't change" is selected
+                changes.push({
+                    from: radio.dataset.from,
+                    to: radio.dataset.to
+                });
+            }
+        });
+
+        if (changes.length === 0) {
+            alert('No changes selected. Please select at least one ingredient to update or click Close.');
+            return;
+        }
+
+        // Confirm with user
+        const message =
+            `This will update ${changes.length} ingredient${changes.length === 1 ? '' : 's'} across all meals:\n\n` +
+            changes.slice(0, 5).map(c => `• "${c.from}" → "${c.to}"`).join('\n') +
+            (changes.length > 5 ? `\n... and ${changes.length - 5} more` : '') +
+            '\n\nContinue?';
+
+        if (!confirm(message)) return;
+
+        // Apply consolidation
+        const updatedCount = await this.store.consolidateIngredients(changes);
+
+        // Refresh views
+        this.renderDatabase();
+        if (this.currentView === 'categories') {
+            this.renderCategories();
+        }
+
+        // Close modal and show success
+        this.closeConsolidateModal();
+        alert(`Successfully updated ${updatedCount} ingredient reference${updatedCount === 1 ? '' : 's'} across your meals!`);
     }
 }
 

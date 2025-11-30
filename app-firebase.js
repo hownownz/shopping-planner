@@ -1033,6 +1033,8 @@ class App {
         this.productSortMode = 'alphabetical'; // Track sort mode for products: 'alphabetical' or 'frequency'
         this.undoStack = []; // Track actions for undo functionality
         this.maxUndoStack = 10; // Keep last 10 actions
+        this.selectedIngredients = new Map(); // Track selected ingredients for meal creation: productName -> quantity
+        this.ingredientSearchTerm = ''; // Track search term for ingredient selection
     }
 
     async initialize() {
@@ -1198,6 +1200,18 @@ class App {
         document.getElementById('close-modal').addEventListener('click', () => this.closeMealModal());
         document.getElementById('cancel-meal-btn').addEventListener('click', () => this.closeMealModal());
         document.getElementById('save-meal-btn').addEventListener('click', () => this.saveMeal());
+
+        // Ingredient selection search
+        document.getElementById('ingredient-search-input').addEventListener('input', (e) => {
+            this.ingredientSearchTerm = e.target.value;
+            this.renderIngredientSelection();
+        });
+
+        // Quick-add product
+        document.getElementById('quick-add-product-btn').addEventListener('click', () => this.quickAddProduct());
+        document.getElementById('quick-add-product-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') this.quickAddProduct();
+        });
 
         // Category modal
         document.getElementById('manage-categories-btn').addEventListener('click', () => this.openCategoryModal());
@@ -2024,21 +2038,51 @@ class App {
 
     openMealModal(mealId = null) {
         this.editingMealId = mealId;
+        this.selectedIngredients = new Map();
+        this.ingredientSearchTerm = '';
+
         const modal = document.getElementById('meal-modal');
         const title = document.getElementById('modal-title');
         const nameInput = document.getElementById('meal-name-input');
-        const ingredientsInput = document.getElementById('meal-ingredients-input');
+        const searchInput = document.getElementById('ingredient-search-input');
+        const quickAddProduct = document.getElementById('quick-add-product-input');
+        const quickAddQuantity = document.getElementById('quick-add-quantity-input');
 
         if (mealId) {
             const meal = this.store.meals.find(m => m.id === mealId);
             title.textContent = 'Edit Meal';
             nameInput.value = meal.name;
-            ingredientsInput.value = meal.ingredients.join('\n');
+
+            // Parse existing ingredients into selectedIngredients map
+            meal.ingredients.forEach(ing => {
+                const cleaned = this.store.cleanIngredientName(ing);
+                // Try to extract quantity from original ingredient string
+                const quantityMatch = ing.match(/^([\d\/\.\s]+[\d]+\s*(?:g|kg|ml|l|cup|cups|tbsp|tsp|can|tin|packet|cans|tins|packets)?s?\s+)/i);
+                const quantity = quantityMatch ? quantityMatch[1].trim() : '';
+
+                // Find matching product in master list (case-insensitive)
+                const masterProduct = this.store.masterProductList.find(
+                    p => p.name.toLowerCase() === cleaned
+                );
+
+                if (masterProduct) {
+                    this.selectedIngredients.set(masterProduct.name, quantity);
+                } else {
+                    // Product not in master list, use cleaned name
+                    this.selectedIngredients.set(cleaned, quantity);
+                }
+            });
         } else {
             title.textContent = 'Add Meal';
             nameInput.value = '';
-            ingredientsInput.value = '';
         }
+
+        searchInput.value = '';
+        quickAddProduct.value = '';
+        quickAddQuantity.value = '';
+
+        this.renderIngredientSelection();
+        this.renderSelectedIngredients();
 
         modal.classList.add('active');
         nameInput.focus();
@@ -2047,18 +2091,32 @@ class App {
     closeMealModal() {
         document.getElementById('meal-modal').classList.remove('active');
         this.editingMealId = null;
+        this.selectedIngredients = new Map();
+        this.ingredientSearchTerm = '';
     }
 
     async saveMeal() {
         const name = document.getElementById('meal-name-input').value.trim();
-        const ingredientsText = document.getElementById('meal-ingredients-input').value.trim();
 
-        if (!name || !ingredientsText) {
-            alert('Please fill in both meal name and ingredients');
+        if (!name) {
+            alert('Please enter a meal name');
             return;
         }
 
-        const ingredients = ingredientsText.split('\n').filter(i => i.trim() !== '');
+        if (this.selectedIngredients.size === 0) {
+            alert('Please select at least one ingredient');
+            return;
+        }
+
+        // Build ingredients array from selectedIngredients map
+        const ingredients = [];
+        this.selectedIngredients.forEach((quantity, productName) => {
+            if (quantity && quantity.trim()) {
+                ingredients.push(`${quantity} ${productName}`);
+            } else {
+                ingredients.push(productName);
+            }
+        });
 
         const meal = { name, ingredients };
 
@@ -2786,6 +2844,184 @@ class App {
         // Close modal and show success
         this.closeConsolidateModal();
         alert(`Successfully updated ${updatedCount} ingredient reference${updatedCount === 1 ? '' : 's'} across your meals!`);
+    }
+
+    // Enhanced Meal Creation - Ingredient Selection
+    renderIngredientSelection() {
+        const container = document.getElementById('ingredient-selection-area');
+        const searchTerm = this.ingredientSearchTerm.toLowerCase();
+
+        // Get all aisles and products
+        const aisles = this.store.getAllAisles();
+
+        let html = '';
+
+        aisles.forEach(aisle => {
+            const products = this.store.getProductsByAisle(aisle);
+
+            // Filter products by search term
+            const filteredProducts = searchTerm
+                ? products.filter(p => p.name.toLowerCase().includes(searchTerm))
+                : products;
+
+            if (filteredProducts.length === 0) return; // Skip empty aisles
+
+            html += `
+                <div class="ingredient-aisle-group" style="margin-bottom: 16px;">
+                    <div style="font-weight: 600; font-size: 14px; color: var(--text-primary); margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid var(--border);">
+                        ${aisle} (${filteredProducts.length})
+                    </div>
+                    <div class="ingredient-products">
+                        ${filteredProducts.map(product => {
+                            const isSelected = this.selectedIngredients.has(product.name);
+                            const quantity = this.selectedIngredients.get(product.name) || '';
+
+                            return `
+                                <div class="ingredient-item" style="display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 4px; ${isSelected ? 'background: #e0f2fe;' : ''} margin-bottom: 4px;">
+                                    <input
+                                        type="checkbox"
+                                        class="ingredient-checkbox"
+                                        data-product="${product.name}"
+                                        ${isSelected ? 'checked' : ''}
+                                        style="cursor: pointer;"
+                                    />
+                                    <label style="flex: 1; cursor: pointer; font-size: 14px; margin: 0;" data-product="${product.name}">
+                                        ${product.name}
+                                    </label>
+                                    <input
+                                        type="text"
+                                        class="ingredient-quantity"
+                                        data-product="${product.name}"
+                                        placeholder="Qty"
+                                        value="${quantity}"
+                                        style="width: 100px; padding: 4px 8px; font-size: 13px; border: 1px solid var(--border); border-radius: 4px; ${isSelected ? '' : 'display: none;'}"
+                                    />
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+        });
+
+        if (html === '') {
+            html = '<p style="color: var(--text-secondary); text-align: center; padding: 40px;">No products found</p>';
+        }
+
+        container.innerHTML = html;
+
+        // Add event listeners for checkboxes
+        container.querySelectorAll('.ingredient-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', (e) => {
+                const productName = e.target.dataset.product;
+                if (e.target.checked) {
+                    this.selectedIngredients.set(productName, '');
+                } else {
+                    this.selectedIngredients.delete(productName);
+                }
+                this.renderIngredientSelection(); // Re-render to show/hide quantity input
+                this.renderSelectedIngredients();
+            });
+        });
+
+        // Add event listeners for quantity inputs
+        container.querySelectorAll('.ingredient-quantity').forEach(input => {
+            input.addEventListener('input', (e) => {
+                const productName = e.target.dataset.product;
+                this.selectedIngredients.set(productName, e.target.value);
+                this.renderSelectedIngredients();
+            });
+        });
+
+        // Add event listeners for labels (to toggle checkbox)
+        container.querySelectorAll('label[data-product]').forEach(label => {
+            label.addEventListener('click', (e) => {
+                const productName = e.target.dataset.product;
+                const checkbox = container.querySelector(`input.ingredient-checkbox[data-product="${productName}"]`);
+                if (checkbox) {
+                    checkbox.checked = !checkbox.checked;
+                    checkbox.dispatchEvent(new Event('change'));
+                }
+            });
+        });
+    }
+
+    renderSelectedIngredients() {
+        const container = document.getElementById('selected-ingredients-list');
+        const countSpan = document.getElementById('selected-count');
+
+        countSpan.textContent = this.selectedIngredients.size;
+
+        if (this.selectedIngredients.size === 0) {
+            container.innerHTML = '<p style="color: var(--text-secondary); text-align: center; padding: 20px 0;">No ingredients selected yet</p>';
+            return;
+        }
+
+        // Sort ingredients alphabetically
+        const sortedIngredients = Array.from(this.selectedIngredients.entries()).sort((a, b) =>
+            a[0].localeCompare(b[0])
+        );
+
+        container.innerHTML = sortedIngredients.map(([productName, quantity]) => `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; border-bottom: 1px solid #e5e7eb;">
+                <div style="flex: 1;">
+                    ${quantity ? `<span style="color: #666; font-size: 13px;">${quantity}</span> ` : ''}
+                    <span style="font-weight: 500;">${productName}</span>
+                </div>
+                <button
+                    class="icon-btn remove-ingredient-btn"
+                    data-product="${productName}"
+                    title="Remove"
+                    style="color: #dc3545; padding: 4px 8px;"
+                >×</button>
+            </div>
+        `).join('');
+
+        // Add remove listeners
+        container.querySelectorAll('.remove-ingredient-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const productName = btn.dataset.product;
+                this.selectedIngredients.delete(productName);
+                this.renderIngredientSelection();
+                this.renderSelectedIngredients();
+            });
+        });
+    }
+
+    async quickAddProduct() {
+        const productInput = document.getElementById('quick-add-product-input');
+        const quantityInput = document.getElementById('quick-add-quantity-input');
+
+        const productName = productInput.value.trim();
+        const quantity = quantityInput.value.trim();
+
+        if (!productName) {
+            alert('Please enter a product name');
+            return;
+        }
+
+        // Check if product already exists in master list
+        const existingProduct = this.store.masterProductList.find(
+            p => p.name.toLowerCase() === productName.toLowerCase()
+        );
+
+        if (existingProduct) {
+            // Product exists, just select it
+            this.selectedIngredients.set(existingProduct.name, quantity);
+        } else {
+            // Add to master list in Misc aisle
+            await this.store.addProduct(productName, 'Misc');
+            // Add to selected ingredients
+            this.selectedIngredients.set(productName, quantity);
+        }
+
+        // Clear inputs
+        productInput.value = '';
+        quantityInput.value = '';
+
+        // Re-render
+        this.renderIngredientSelection();
+        this.renderSelectedIngredients();
     }
 }
 

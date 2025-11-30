@@ -9,7 +9,7 @@
     <title>Shopping Planner</title>
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icon-192.png">
-    <link rel="stylesheet" href="styles.css?v=11">
+    <link rel="stylesheet" href="styles.css?v=12">
 </head>
 <body>
     <div class="app-container">
@@ -134,7 +134,7 @@
 
     <!-- Modal for adding/editing meals -->
     <div class="modal" id="meal-modal">
-        <div class="modal-content">
+        <div class="modal-content" style="max-width: 800px;">
             <div class="modal-header">
                 <h2 id="modal-title">Add Meal</h2>
                 <button class="close-btn" id="close-modal">&times;</button>
@@ -142,13 +142,38 @@
             <div class="modal-body">
                 <label>Meal Name</label>
                 <input type="text" id="meal-name-input" placeholder="e.g., Spaghetti Bolognese">
-                
-                <label>Ingredients (one per line)</label>
-                <textarea id="meal-ingredients-input" rows="10" placeholder="e.g.,&#10;500g beef mince&#10;1 onion&#10;2 cans tomatoes&#10;400g spaghetti"></textarea>
-                
-                <div class="modal-actions">
+
+                <div style="margin-top: 20px;">
+                    <label>Select Ingredients from Master List</label>
+                    <input type="text" id="ingredient-search-input" placeholder="Search ingredients..." style="margin-bottom: 10px;">
+
+                    <div id="ingredient-selection-area" style="max-height: 400px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; padding: 12px; background: var(--surface);">
+                        <!-- Populated by JavaScript -->
+                    </div>
+                </div>
+
+                <div style="margin-top: 15px; padding: 12px; background: var(--surface); border-radius: 8px; border: 1px solid var(--border);">
+                    <label style="font-weight: 600; margin-bottom: 8px; display: block;">Add Product Not in List</label>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <input type="text" id="quick-add-product-input" placeholder="Product name" style="flex: 1;">
+                        <input type="text" id="quick-add-quantity-input" placeholder="Qty (optional)" style="width: 120px;">
+                        <button class="btn-secondary" id="quick-add-product-btn">+ Add</button>
+                    </div>
+                    <p style="font-size: 12px; color: var(--text-secondary); margin-top: 6px; margin-bottom: 0;">
+                        Product will be added to Misc aisle in master list
+                    </p>
+                </div>
+
+                <div style="margin-top: 15px;">
+                    <label style="font-weight: 600;">Selected Ingredients (<span id="selected-count">0</span>)</label>
+                    <div id="selected-ingredients-list" style="min-height: 80px; max-height: 150px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; padding: 10px; background: #fff; margin-top: 8px;">
+                        <p style="color: var(--text-secondary); text-align: center; padding: 20px 0;">No ingredients selected yet</p>
+                    </div>
+                </div>
+
+                <div class="modal-actions" style="margin-top: 20px;">
                     <button class="btn-secondary" id="cancel-meal-btn">Cancel</button>
-                    <button class="btn-primary" id="save-meal-btn">Save</button>
+                    <button class="btn-primary" id="save-meal-btn">Save Meal</button>
                 </div>
             </div>
         </div>
@@ -397,6 +422,6 @@
         </div>
     </div>
 
-    <script type="module" src="app-firebase.js?v=11"></script>
+    <script type="module" src="app-firebase.js?v=12"></script>
 </body>
 </html>

@@ -663,6 +663,14 @@ class DataStore {
         await this.save('shoppingList', this.shoppingList);
     }
 
+    // Check if an item is already in the shopping list
+    isItemInShoppingList(itemName) {
+        const normalizedName = itemName.toLowerCase().trim();
+        return this.shoppingList.some(item =>
+            item.text.toLowerCase().trim() === normalizedName
+        );
+    }
+
     // Usage tracking methods
     trackItemUsage(itemText) {
         const key = itemText.toLowerCase().trim();
@@ -1138,6 +1146,7 @@ class App {
                     this.store.shoppingList.push(...action.data);
                     await this.store.save('shoppingList', this.store.shoppingList);
                     this.renderShoppingList();
+                    this.renderCategories(); // Update to show items are back in list
                     break;
 
                 case 'CLEAR_ALL':
@@ -1145,6 +1154,7 @@ class App {
                     this.store.shoppingList = action.data;
                     await this.store.save('shoppingList', this.store.shoppingList);
                     this.renderShoppingList();
+                    this.renderCategories(); // Update to show items are back in list
                     break;
             }
         } catch (error) {
@@ -1383,6 +1393,7 @@ class App {
                 const id = item.dataset.id;
                 await this.store.toggleMealSelection(id);
                 this.renderMealsList(searchTerm);
+                this.renderCategories(); // Update to show which items are now in list
             });
         });
     }
@@ -1497,6 +1508,7 @@ class App {
                 const text = btn.dataset.text;
                 await this.store.removeItem(text);
                 this.renderShoppingList();
+                this.renderCategories(); // Update to show item is no longer in list
             });
         });
 
@@ -1685,12 +1697,14 @@ class App {
                             const showUsage = this.productSortMode === 'frequency' && usageCount > 0;
                             const mealsUsing = this.store.getMealsUsingProduct(product.name);
                             const mealCount = mealsUsing.length;
+                            const isInShoppingList = this.store.isItemInShoppingList(product.name);
                             return `
-                                <div class="master-product-item" data-id="${product.id}">
+                                <div class="master-product-item ${isInShoppingList ? 'in-shopping-list' : ''}" data-id="${product.id}">
                                     <div style="display: flex; flex-direction: column; flex: 1; min-width: 0;">
                                         <span class="master-product-name">
                                             ${product.name}
                                             ${showUsage ? `<span style="color: #999; font-size: 12px; margin-left: 8px;">×${usageCount}</span>` : ''}
+                                            ${isInShoppingList ? `<span class="in-list-badge">✓ In List</span>` : ''}
                                         </span>
                                         ${mealCount > 0 ? `
                                             <span style="color: #666; font-size: 11px; margin-top: 2px;" title="${mealsUsing.map(m => m.name).join(', ')}">
@@ -1720,6 +1734,7 @@ class App {
                 const id = card.dataset.id;
                 await this.store.addCategoryItems(id);
                 this.renderShoppingList();
+                this.renderCategories(); // Update to show items are now in list
                 // Show feedback
                 card.style.transform = 'scale(0.95)';
                 setTimeout(() => {
@@ -1757,6 +1772,7 @@ class App {
                 const category = item.dataset.category;
                 await this.store.addManualItem(text, category);
                 this.renderShoppingList();
+                this.renderCategories(); // Update to show item is now in list
                 // Show feedback
                 item.style.transform = 'scale(0.95)';
                 item.style.opacity = '0.7';
@@ -1867,6 +1883,7 @@ class App {
                 const aisle = btn.dataset.aisle;
                 await this.store.addManualItem(name, aisle);
                 this.renderShoppingList();
+                this.renderCategories(); // Update to show item is now in list
                 // Show feedback
                 btn.style.transform = 'scale(1.05)';
                 setTimeout(() => {
@@ -1883,6 +1900,7 @@ class App {
                 const aisle = btn.dataset.aisle;
                 await this.store.addManualItem(name, aisle);
                 this.renderShoppingList();
+                this.renderCategories(); // Update to show item is now in list
                 // Show feedback
                 btn.style.transform = 'scale(1.2)';
                 setTimeout(() => {
@@ -2287,6 +2305,7 @@ class App {
             await this.store.addManualItem(text, select.value);
             input.value = '';
             this.renderShoppingList();
+            this.renderCategories(); // Update to show item is now in list
         }
     }
 
@@ -2309,6 +2328,7 @@ class App {
             }
             await this.store.clearCheckedItems();
             this.renderShoppingList();
+            this.renderCategories(); // Update to show items are no longer in list
         }
     }
 
@@ -2324,6 +2344,7 @@ class App {
             }
             await this.store.clearAllItems();
             this.renderShoppingList();
+            this.renderCategories(); // Update to show items are no longer in list
         }
     }
 

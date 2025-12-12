@@ -659,9 +659,13 @@ class DataStore {
             if (meal) {
                 meal.ingredients.forEach(ingredient => {
                     const text = ingredient.trim();
+
+                    // Try to match ingredient to a product in master list first
+                    const category = this.findCategoryFromMasterProducts(ingredient) || this.guessCategory(ingredient);
+
                     mealIngredients.push({
                         text: text,
-                        category: this.guessCategory(ingredient),
+                        category: category,
                         checked: false,
                         source: 'meal'
                     });
@@ -706,6 +710,34 @@ class DataStore {
         });
 
         return Array.from(itemMap.values());
+    }
+
+    // Try to find the category from master product list by matching ingredient name
+    findCategoryFromMasterProducts(ingredient) {
+        const cleanedIngredient = ingredient.toLowerCase().trim()
+            .replace(/^[\d\/\.\s]+/g, '') // Remove leading numbers/fractions
+            .replace(/^\d+\s*(g|kg|ml|l|cup|cups|tbsp|tsp|can|tin|packet)s?\s+/gi, '') // Remove measurements
+            .trim();
+
+        // Try exact match first
+        const exactMatch = this.masterProductList.find(p =>
+            p.name.toLowerCase() === cleanedIngredient
+        );
+        if (exactMatch) {
+            return exactMatch.aisle;
+        }
+
+        // Try partial match - ingredient contains product name or vice versa
+        const partialMatch = this.masterProductList.find(p => {
+            const productName = p.name.toLowerCase();
+            return cleanedIngredient.includes(productName) || productName.includes(cleanedIngredient);
+        });
+        if (partialMatch) {
+            return partialMatch.aisle;
+        }
+
+        // No match found
+        return null;
     }
 
     guessCategory(ingredient) {

@@ -2354,7 +2354,7 @@ class App {
 
         let html = '';
 
-        aisles.forEach(aisle => {
+        aisles.forEach((aisle, aisleIndex) => {
             const products = this.store.getProductsByAisle(aisle);
 
             // Filter products by search term
@@ -2364,25 +2364,33 @@ class App {
 
             if (filteredProducts.length === 0) return; // Skip empty aisles
 
+            // When searching, expand all; otherwise start collapsed
+            const isExpanded = searchTerm !== '';
+            const aisleId = `category-aisle-${aisleIndex}`;
+
             html += `
-                <div class="category-product-aisle-group" style="margin-bottom: 16px;">
-                    <div style="font-weight: 600; font-size: 14px; color: var(--text-primary); margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid var(--border);">
-                        ${aisle} (${filteredProducts.length})
+                <div class="category-product-aisle-group" style="margin-bottom: 8px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: white;">
+                    <div class="aisle-header" data-aisle-id="${aisleId}" style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: var(--surface); cursor: pointer; user-select: none; border-bottom: 1px solid var(--border);">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span class="aisle-toggle" style="font-size: 12px; transition: transform 0.2s;">${isExpanded ? '▼' : '▶'}</span>
+                            <span style="font-weight: 600; font-size: 14px; color: var(--text-primary);">${aisle}</span>
+                            <span style="font-size: 12px; color: var(--text-secondary);">(${filteredProducts.length})</span>
+                        </div>
                     </div>
-                    <div class="category-product-list">
+                    <div class="category-product-list" id="${aisleId}" style="display: ${isExpanded ? 'block' : 'none'}; padding: 8px;">
                         ${filteredProducts.map(product => {
                             const isSelected = this.selectedCategoryProducts.has(product.name);
 
                             return `
-                                <div class="category-product-item" style="display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 4px; ${isSelected ? 'background: #e0f2fe;' : ''} margin-bottom: 4px;">
+                                <div class="category-product-item" style="display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 10px; padding: 8px; border-radius: 4px; ${isSelected ? 'background: #e0f2fe;' : ''} margin-bottom: 2px;">
                                     <input
                                         type="checkbox"
                                         class="category-product-checkbox"
                                         data-product="${product.name}"
                                         ${isSelected ? 'checked' : ''}
-                                        style="cursor: pointer;"
+                                        style="cursor: pointer; margin: 0; width: 16px; height: 16px;"
                                     />
-                                    <label style="flex: 1; cursor: pointer; font-size: 14px; margin: 0;" data-product="${product.name}">
+                                    <label style="cursor: pointer; font-size: 14px; margin: 0;" data-product="${product.name}">
                                         ${product.name}
                                     </label>
                                 </div>
@@ -2399,7 +2407,24 @@ class App {
 
         container.innerHTML = html;
 
-        // Attach event listeners
+        // Attach toggle listeners for aisle headers
+        container.querySelectorAll('.aisle-header').forEach(header => {
+            header.addEventListener('click', (e) => {
+                const aisleId = e.currentTarget.dataset.aisleId;
+                const productList = document.getElementById(aisleId);
+                const toggle = e.currentTarget.querySelector('.aisle-toggle');
+
+                if (productList.style.display === 'none') {
+                    productList.style.display = 'block';
+                    toggle.textContent = '▼';
+                } else {
+                    productList.style.display = 'none';
+                    toggle.textContent = '▶';
+                }
+            });
+        });
+
+        // Attach event listeners for checkboxes
         container.querySelectorAll('.category-product-checkbox').forEach(checkbox => {
             checkbox.addEventListener('change', (e) => {
                 const productName = e.target.dataset.product;
@@ -3294,7 +3319,7 @@ class App {
 
         let html = '';
 
-        aisles.forEach(aisle => {
+        aisles.forEach((aisle, aisleIndex) => {
             const products = this.store.getProductsByAisle(aisle);
 
             // Filter products by search term
@@ -3304,26 +3329,34 @@ class App {
 
             if (filteredProducts.length === 0) return; // Skip empty aisles
 
+            // When searching, expand all; otherwise start collapsed
+            const isExpanded = searchTerm !== '';
+            const aisleId = `ingredient-aisle-${aisleIndex}`;
+
             html += `
-                <div class="ingredient-aisle-group" style="margin-bottom: 16px;">
-                    <div style="font-weight: 600; font-size: 14px; color: var(--text-primary); margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid var(--border);">
-                        ${aisle} (${filteredProducts.length})
+                <div class="ingredient-aisle-group" style="margin-bottom: 8px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: white;">
+                    <div class="aisle-header" data-aisle-id="${aisleId}" style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: var(--surface); cursor: pointer; user-select: none; border-bottom: 1px solid var(--border);">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span class="aisle-toggle" style="font-size: 12px; transition: transform 0.2s;">${isExpanded ? '▼' : '▶'}</span>
+                            <span style="font-weight: 600; font-size: 14px; color: var(--text-primary);">${aisle}</span>
+                            <span style="font-size: 12px; color: var(--text-secondary);">(${filteredProducts.length})</span>
+                        </div>
                     </div>
-                    <div class="ingredient-products">
+                    <div class="ingredient-products" id="${aisleId}" style="display: ${isExpanded ? 'block' : 'none'}; padding: 8px;">
                         ${filteredProducts.map(product => {
                             const isSelected = this.selectedIngredients.has(product.name);
                             const quantity = this.selectedIngredients.get(product.name) || '';
 
                             return `
-                                <div class="ingredient-item" style="display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 4px; ${isSelected ? 'background: #e0f2fe;' : ''} margin-bottom: 4px;">
+                                <div class="ingredient-item" style="display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; padding: 8px; border-radius: 4px; ${isSelected ? 'background: #e0f2fe;' : ''} margin-bottom: 2px;">
                                     <input
                                         type="checkbox"
                                         class="ingredient-checkbox"
                                         data-product="${product.name}"
                                         ${isSelected ? 'checked' : ''}
-                                        style="cursor: pointer;"
+                                        style="cursor: pointer; margin: 0; width: 16px; height: 16px;"
                                     />
-                                    <label style="flex: 1; cursor: pointer; font-size: 14px; margin: 0;" data-product="${product.name}">
+                                    <label style="cursor: pointer; font-size: 14px; margin: 0;" data-product="${product.name}">
                                         ${product.name}
                                     </label>
                                     <input
@@ -3332,7 +3365,7 @@ class App {
                                         data-product="${product.name}"
                                         placeholder="Qty"
                                         value="${quantity}"
-                                        style="width: 100px; padding: 4px 8px; font-size: 13px; border: 1px solid var(--border); border-radius: 4px; ${isSelected ? '' : 'display: none;'}"
+                                        style="width: 100px; padding: 4px 8px; font-size: 13px; border: 1px solid var(--border); border-radius: 4px; ${isSelected ? '' : 'visibility: hidden;'}"
                                     />
                                 </div>
                             `;
@@ -3347,6 +3380,23 @@ class App {
         }
 
         container.innerHTML = html;
+
+        // Attach toggle listeners for aisle headers
+        container.querySelectorAll('.aisle-header').forEach(header => {
+            header.addEventListener('click', (e) => {
+                const aisleId = e.currentTarget.dataset.aisleId;
+                const productList = document.getElementById(aisleId);
+                const toggle = e.currentTarget.querySelector('.aisle-toggle');
+
+                if (productList.style.display === 'none') {
+                    productList.style.display = 'block';
+                    toggle.textContent = '▼';
+                } else {
+                    productList.style.display = 'none';
+                    toggle.textContent = '▶';
+                }
+            });
+        });
 
         // Add event listeners for checkboxes
         container.querySelectorAll('.ingredient-checkbox').forEach(checkbox => {

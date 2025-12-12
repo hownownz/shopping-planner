@@ -9,7 +9,7 @@
     <title>Shopping Planner</title>
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icon-192.png">
-    <link rel="stylesheet" href="styles.css?v=13">
+    <link rel="stylesheet" href="styles.css?v=14">
 </head>
 <body>
     <div class="app-container">
@@ -71,23 +71,7 @@
                     <!-- Populated by JavaScript -->
                 </datalist>
                 <select id="manual-item-category">
-                    <option value="Fruit/Veg">Fruit/Veg</option>
-                    <option value="Meat/Chilled">Meat/Chilled</option>
-                    <option value="Pet Things">Pet Things</option>
-                    <option value="Chips">Chips</option>
-                    <option value="Coffee/Drinks/Tea">Coffee/Drinks/Tea</option>
-                    <option value="Breakfast/Condiments">Breakfast/Condiments</option>
-                    <option value="Baking/Choc Sauce/Dried Fruits">Baking/Choc/Dried Fruits</option>
-                    <option value="Bars/Chips/Pretzels/Popcorn">Bars/Snacks</option>
-                    <option value="Canned/Seasoning/Sauces">Canned/Seasoning/Sauces</option>
-                    <option value="Pasta/Noodles/Stock/Sauces/Tacos/Rice">Pasta/Rice/Noodles</option>
-                    <option value="Paper Towels/Nappy Things/TP">Paper/Nappy/TP</option>
-                    <option value="Biscuits/Crackers">Biscuits/Crackers</option>
-                    <option value="Cleaning/Washing products">Cleaning Products</option>
-                    <option value="Frozen">Frozen</option>
-                    <option value="Bread/Buns">Bread/Buns</option>
-                    <option value="Womens Products/Shampoo/Soap/Oral">Personal Care</option>
-                    <option value="Misc">Misc</option>
+                    <!-- Populated dynamically by JavaScript -->
                 </select>
                 <button class="btn-primary" id="add-manual-btn">Add</button>
             </div>
@@ -121,6 +105,7 @@
                     <button class="btn-secondary" id="consolidate-ingredients-btn">Clean Up Ingredients</button>
                     <button class="btn-secondary" id="reset-stats-btn">Reset Statistics</button>
                     <button class="btn-secondary" id="manage-ingredients-btn">Manage Ingredients</button>
+                    <button class="btn-secondary" id="manage-aisles-btn">Manage Aisles</button>
                     <button class="btn-secondary" id="export-data-btn">Export</button>
                     <button class="btn-primary" id="add-meal-btn">+ Add Meal</button>
                     <button class="icon-btn dark-mode-toggle" title="Toggle dark mode">
@@ -195,23 +180,7 @@
 
                 <label>Aisle Category</label>
                 <select id="category-aisle-select">
-                    <option value="Fruit/Veg">Fruit/Veg</option>
-                    <option value="Meat/Chilled">Meat/Chilled</option>
-                    <option value="Pet Things">Pet Things</option>
-                    <option value="Chips">Chips</option>
-                    <option value="Coffee/Drinks/Tea">Coffee/Drinks/Tea</option>
-                    <option value="Breakfast/Condiments">Breakfast/Condiments</option>
-                    <option value="Baking/Choc Sauce/Dried Fruits">Baking/Choc/Dried Fruits</option>
-                    <option value="Bars/Chips/Pretzels/Popcorn">Bars/Snacks</option>
-                    <option value="Canned/Seasoning/Sauces">Canned/Seasoning/Sauces</option>
-                    <option value="Pasta/Noodles/Stock/Sauces/Tacos/Rice">Pasta/Rice/Noodles</option>
-                    <option value="Paper Towels/Nappy Things/TP">Paper/Nappy/TP</option>
-                    <option value="Biscuits/Crackers">Biscuits/Crackers</option>
-                    <option value="Cleaning/Washing products">Cleaning Products</option>
-                    <option value="Frozen">Frozen</option>
-                    <option value="Bread/Buns">Bread/Buns</option>
-                    <option value="Womens Products/Shampoo/Soap/Oral">Personal Care</option>
-                    <option value="Misc">Misc</option>
+                    <!-- Populated dynamically by JavaScript -->
                 </select>
 
                 <div class="modal-actions">
@@ -247,24 +216,7 @@
                         <div style="display: flex; gap: 10px; margin-top: 5px;">
                             <input type="text" id="new-ingredient-input" placeholder="Ingredient name" style="flex: 1;">
                             <select id="new-ingredient-category" style="flex: 1;">
-                                <option value="">Select aisle...</option>
-                                <option value="Fruit/Veg">Fruit/Veg</option>
-                                <option value="Meat/Chilled">Meat/Chilled</option>
-                                <option value="Pet Things">Pet Things</option>
-                                <option value="Chips">Chips</option>
-                                <option value="Coffee/Drinks/Tea">Coffee/Drinks/Tea</option>
-                                <option value="Breakfast/Condiments">Breakfast/Condiments</option>
-                                <option value="Baking/Choc Sauce/Dried Fruits">Baking/Choc/Dried Fruits</option>
-                                <option value="Bars/Chips/Pretzels/Popcorn">Bars/Snacks</option>
-                                <option value="Canned/Seasoning/Sauces">Canned/Seasoning/Sauces</option>
-                                <option value="Pasta/Noodles/Stock/Sauces/Tacos/Rice">Pasta/Rice/Noodles</option>
-                                <option value="Paper Towels/Nappy Things/TP">Paper/Nappy/TP</option>
-                                <option value="Biscuits/Crackers">Biscuits/Crackers</option>
-                                <option value="Cleaning/Washing products">Cleaning Products</option>
-                                <option value="Frozen">Frozen</option>
-                                <option value="Bread/Buns">Bread/Buns</option>
-                                <option value="Womens Products/Shampoo/Soap/Oral">Personal Care</option>
-                                <option value="Misc">Misc</option>
+                                <!-- Populated dynamically by JavaScript -->
                             </select>
                             <button class="btn-primary" id="add-ingredient-mapping-btn">Add</button>
                         </div>
@@ -314,23 +266,7 @@
 
                 <label>Aisle Category</label>
                 <select id="product-aisle-select">
-                    <option value="Fruit/Veg">Fruit/Veg</option>
-                    <option value="Meat/Chilled">Meat/Chilled</option>
-                    <option value="Pet Things">Pet Things</option>
-                    <option value="Chips">Chips</option>
-                    <option value="Coffee/Drinks/Tea">Coffee/Drinks/Tea</option>
-                    <option value="Breakfast/Condiments">Breakfast/Condiments</option>
-                    <option value="Baking/Choc Sauce/Dried Fruits">Baking/Choc/Dried Fruits</option>
-                    <option value="Bars/Chips/Pretzels/Popcorn">Bars/Snacks</option>
-                    <option value="Canned/Seasoning/Sauces">Canned/Seasoning/Sauces</option>
-                    <option value="Pasta/Noodles/Stock/Sauces/Tacos/Rice">Pasta/Rice/Noodles</option>
-                    <option value="Paper Towels/Nappy Things/TP">Paper/Nappy/TP</option>
-                    <option value="Biscuits/Crackers">Biscuits/Crackers</option>
-                    <option value="Cleaning/Washing products">Cleaning Products</option>
-                    <option value="Frozen">Frozen</option>
-                    <option value="Bread/Buns">Bread/Buns</option>
-                    <option value="Womens Products/Shampoo/Soap/Oral">Personal Care</option>
-                    <option value="Misc">Misc</option>
+                    <!-- Populated dynamically by JavaScript -->
                 </select>
 
                 <div class="modal-actions">
@@ -354,23 +290,7 @@
 
                 <label>Aisle Category</label>
                 <select id="edit-product-aisle-select">
-                    <option value="Fruit/Veg">Fruit/Veg</option>
-                    <option value="Meat/Chilled">Meat/Chilled</option>
-                    <option value="Pet Things">Pet Things</option>
-                    <option value="Chips">Chips</option>
-                    <option value="Coffee/Drinks/Tea">Coffee/Drinks/Tea</option>
-                    <option value="Breakfast/Condiments">Breakfast/Condiments</option>
-                    <option value="Baking/Choc Sauce/Dried Fruits">Baking/Choc/Dried Fruits</option>
-                    <option value="Bars/Chips/Pretzels/Popcorn">Bars/Snacks</option>
-                    <option value="Canned/Seasoning/Sauces">Canned/Seasoning/Sauces</option>
-                    <option value="Pasta/Noodles/Stock/Sauces/Tacos/Rice">Pasta/Rice/Noodles</option>
-                    <option value="Paper Towels/Nappy Things/TP">Paper/Nappy/TP</option>
-                    <option value="Biscuits/Crackers">Biscuits/Crackers</option>
-                    <option value="Cleaning/Washing products">Cleaning Products</option>
-                    <option value="Frozen">Frozen</option>
-                    <option value="Bread/Buns">Bread/Buns</option>
-                    <option value="Womens Products/Shampoo/Soap/Oral">Personal Care</option>
-                    <option value="Misc">Misc</option>
+                    <!-- Populated dynamically by JavaScript -->
                 </select>
 
                 <div class="modal-actions">
@@ -422,6 +342,38 @@
         </div>
     </div>
 
-    <script type="module" src="app-firebase.js?v=13"></script>
+    <!-- Modal for managing aisles -->
+    <div class="modal" id="aisles-modal">
+        <div class="modal-content" style="max-width: 700px;">
+            <div class="modal-header">
+                <h2>Manage Aisles</h2>
+                <button class="close-btn" id="close-aisles-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 15px; color: #666;">
+                    Configure the aisles that appear in your shopping list. Drag to reorder, and all dropdowns will update automatically.
+                </p>
+
+                <div style="margin-bottom: 15px;">
+                    <label>Add New Aisle</label>
+                    <div style="display: flex; gap: 10px; margin-top: 5px;">
+                        <input type="text" id="new-aisle-input" placeholder="Aisle name" style="flex: 1;">
+                        <button class="btn-primary" id="add-aisle-btn">Add</button>
+                    </div>
+                </div>
+
+                <label>Current Aisles (drag to reorder)</label>
+                <div id="aisles-list" style="max-height: 400px; overflow-y: auto; border: 1px solid #ddd; border-radius: 5px; padding: 10px; background: #f9f9f9;">
+                    <!-- List will be populated by JS -->
+                </div>
+
+                <div class="modal-actions" style="margin-top: 15px;">
+                    <button class="btn-secondary" id="close-aisles-btn">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="app-firebase.js?v=14"></script>
 </body>
 </html>

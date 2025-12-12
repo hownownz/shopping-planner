@@ -10,6 +10,7 @@ class DataStore {
         this.ingredientMappings = {}; // Custom ingredient-to-category mappings
         this.itemUsageCount = {}; // Track how often items are added to shopping list
         this.masterProductList = []; // Master list of all products organized by aisle
+        this.aisles = []; // List of aisle names with order
         this.isInitialized = false;
         this.syncEnabled = false;
     }
@@ -25,6 +26,7 @@ class DataStore {
         this.ingredientMappings = this.loadLocal('ingredientMappings') || {};
         this.itemUsageCount = this.loadLocal('itemUsageCount') || {};
         this.masterProductList = this.loadLocal('masterProductList') || this.getDefaultMasterProductList();
+        this.aisles = this.loadLocal('aisles') || this.getDefaultAisles();
 
         // Set up Firebase sync if authenticated
         if (firebaseService.isAuthenticated()) {
@@ -65,6 +67,11 @@ class DataStore {
                 case 'masterProductList':
                     this.masterProductList = data;
                     this.saveLocal('masterProductList', data);
+                    if (window.app) window.app.render();
+                    break;
+                case 'aisles':
+                    this.aisles = data;
+                    this.saveLocal('aisles', data);
                     if (window.app) window.app.render();
                     break;
             }
@@ -116,6 +123,9 @@ class DataStore {
                     break;
                 case 'masterProductList':
                     await firebaseService.saveMasterProductList(data);
+                    break;
+                case 'aisles':
+                    await firebaseService.saveAisles(data);
                     break;
             }
         }
@@ -382,6 +392,28 @@ class DataStore {
         }));
     }
 
+    getDefaultAisles() {
+        return [
+            'Fruit/Veg',
+            'Meat/Chilled',
+            'Pet Things',
+            'Chips',
+            'Coffee/Drinks/Tea',
+            'Breakfast/Condiments',
+            'Baking/Choc Sauce/Dried Fruits',
+            'Bars/Chips/Pretzels/Popcorn',
+            'Canned/Seasoning/Sauces',
+            'Pasta/Noodles/Stock/Sauces/Tacos/Rice',
+            'Paper Towels/Nappy Things/TP',
+            'Biscuits/Crackers',
+            'Cleaning/Washing products',
+            'Frozen',
+            'Bread/Buns',
+            'Womens Products/Shampoo/Soap/Oral',
+            'Misc'
+        ];
+    }
+
     // Master Product List methods
     async addProduct(name, aisle) {
         const product = {
@@ -428,6 +460,30 @@ class DataStore {
     }
 
     getAllAisles() {
+        // Get unique aisles from master product list
+        const productAisles = [...new Set(this.masterProductList.map(p => p.aisle))];
+
+        // Combine configured aisles with any aisles from products not in the list
+        const allAisles = [...new Set([...this.aisles, ...productAisles])];
+
+        // Sort according to configured order, putting unconfigured aisles at the end
+        return allAisles.sort((a, b) => {
+            const indexA = this.aisles.indexOf(a);
+            const indexB = this.aisles.indexOf(b);
+
+            // If both are in the configured list, sort by their order
+            if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+            // If only A is configured, it comes first
+            if (indexA !== -1) return -1;
+            // If only B is configured, it comes first
+            if (indexB !== -1) return 1;
+            // Otherwise, sort alphabetically
+            return a.localeCompare(b);
+        });
+    }
+
+    // Legacy method for compatibility - can be removed later
+    getAllAislesOld() {
         const aisles = [...new Set(this.masterProductList.map(p => p.aisle))];
         // Sort aisles in the standard order
         const aisleOrder = [
@@ -456,6 +512,86 @@ class DataStore {
             if (indexB === -1) return -1;
             return indexA - indexB;
         });
+    }
+
+    // Aisle management methods
+    async addAisle(aisleName) {
+        const trimmed = aisleName.trim();
+        if (!trimmed) return;
+        if (this.aisles.includes(trimmed)) {
+            throw new Error('Aisle already exists');
+        }
+        this.aisles.push(trimmed);
+        await this.save('aisles', this.aisles);
+    }
+
+    async updateAisle(oldName, newName) {
+        const trimmed = newName.trim();
+        if (!trimmed) return;
+
+        const index = this.aisles.indexOf(oldName);
+        if (index === -1) {
+            throw new Error('Aisle not found');
+        }
+
+        // Check if new name conflicts with existing aisle (unless it's the same)
+        if (oldName !== trimmed && this.aisles.includes(trimmed)) {
+            throw new Error('Aisle name already exists');
+        }
+
+        // Update aisle in the list
+        this.aisles[index] = trimmed;
+
+        // Update all products that use this aisle
+        this.masterProductList.forEach(product => {
+            if (product.aisle === oldName) {
+                product.aisle = trimmed;
+                product.updatedAt = new Date().toISOString();
+            }
+        });
+
+        // Save both
+        await this.save('aisles', this.aisles);
+        await this.save('masterProductList', this.masterProductList);
+    }
+
+    async deleteAisle(aisleName) {
+        const index = this.aisles.indexOf(aisleName);
+        if (index === -1) return;
+
+        // Check if any products use this aisle
+        const productsUsingAisle = this.masterProductList.filter(p => p.aisle === aisleName);
+        if (productsUsingAisle.length > 0) {
+            throw new Error(`Cannot delete aisle: ${productsUsingAisle.length} products are using it`);
+        }
+
+        // Remove from list
+        this.aisles.splice(index, 1);
+        await this.save('aisles', this.aisles);
+    }
+
+    async reorderAisles(newOrder) {
+        // newOrder should be an array of aisle names in the desired order
+        this.aisles = newOrder;
+        await this.save('aisles', this.aisles);
+    }
+
+    async moveAisle(aisleName, direction) {
+        const index = this.aisles.indexOf(aisleName);
+        if (index === -1) return;
+
+        let newIndex = index;
+        if (direction === 'up' && index > 0) {
+            newIndex = index - 1;
+        } else if (direction === 'down' && index < this.aisles.length - 1) {
+            newIndex = index + 1;
+        } else {
+            return; // Can't move
+        }
+
+        // Swap
+        [this.aisles[index], this.aisles[newIndex]] = [this.aisles[newIndex], this.aisles[index]];
+        await this.save('aisles', this.aisles);
     }
 
     // Meal methods
@@ -840,15 +976,16 @@ class DataStore {
                     .sort((a, b) => b.score - a.score)
                     .slice(0, 3); // Top 3 matches
 
-                // Count how many meals use this ingredient
-                const mealsUsingCount = this.meals.filter(meal =>
+                // Count how many meals use this ingredient and get their names
+                const mealsUsing = this.meals.filter(meal =>
                     meal.ingredients.some(ing => this.cleanIngredientName(ing) === ingredient)
-                ).length;
+                );
 
                 if (matches.length > 0) {
                     mismatches.push({
                         ingredient: ingredient,
-                        mealsCount: mealsUsingCount,
+                        mealsCount: mealsUsing.length,
+                        mealNames: mealsUsing.map(m => m.name),
                         suggestedMatches: matches
                     });
                 }
@@ -1061,6 +1198,7 @@ class App {
         this.initDarkMode();
 
         this.initEventListeners();
+        this.updateAllAisleDropdowns(); // Populate dropdowns with configured aisles
         this.render();
         this.isReady = true;
 
@@ -1304,6 +1442,15 @@ class App {
             document.getElementById('import-master-products-file').click();
         });
         document.getElementById('import-master-products-file').addEventListener('change', (e) => this.importMasterProducts(e));
+
+        // Manage aisles
+        document.getElementById('manage-aisles-btn').addEventListener('click', () => this.openAislesModal());
+        document.getElementById('close-aisles-modal').addEventListener('click', () => this.closeAislesModal());
+        document.getElementById('close-aisles-btn').addEventListener('click', () => this.closeAislesModal());
+        document.getElementById('add-aisle-btn').addEventListener('click', () => this.addAisle());
+        document.getElementById('new-aisle-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') this.addAisle();
+        });
     }
 
     switchView(view) {
@@ -2784,7 +2931,10 @@ class App {
                 <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
                     <div>
                         <div style="font-weight: 600; color: #dc3545; font-size: 15px;">"${mismatch.ingredient}"</div>
-                        <div style="color: #666; font-size: 13px; margin-top: 4px;">Used in ${mismatch.mealsCount} meal${mismatch.mealsCount === 1 ? '' : 's'}</div>
+                        <div style="color: #666; font-size: 13px; margin-top: 4px;">
+                            Used in ${mismatch.mealsCount} meal${mismatch.mealsCount === 1 ? '' : 's'}:
+                            <strong>${mismatch.mealNames.join(', ')}</strong>
+                        </div>
                     </div>
                 </div>
 
@@ -2865,6 +3015,150 @@ class App {
         // Close modal and show success
         this.closeConsolidateModal();
         alert(`Successfully updated ${updatedCount} ingredient reference${updatedCount === 1 ? '' : 's'} across your meals!`);
+    }
+
+    // Aisle Management
+    openAislesModal() {
+        const modal = document.getElementById('aisles-modal');
+        modal.classList.add('active');
+        this.renderAislesList();
+    }
+
+    closeAislesModal() {
+        const modal = document.getElementById('aisles-modal');
+        modal.classList.remove('active');
+        document.getElementById('new-aisle-input').value = '';
+    }
+
+    renderAislesList() {
+        const container = document.getElementById('aisles-list');
+        const aisles = this.store.aisles;
+
+        if (aisles.length === 0) {
+            container.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">No aisles configured</p>';
+            return;
+        }
+
+        container.innerHTML = aisles.map((aisle, index) => {
+            const productsCount = this.store.masterProductList.filter(p => p.aisle === aisle).length;
+            return `
+                <div class="aisle-item" data-aisle="${aisle}" style="display: flex; align-items: center; gap: 10px; padding: 12px; border: 1px solid #ddd; border-radius: 5px; margin-bottom: 8px; background: white;">
+                    <div style="cursor: grab; color: #999; font-size: 18px;">⋮⋮</div>
+                    <div style="flex: 1;">
+                        <div style="font-weight: 500;">${aisle}</div>
+                        <div style="font-size: 12px; color: #666;">${productsCount} product${productsCount === 1 ? '' : 's'}</div>
+                    </div>
+                    <button class="btn-icon" onclick="app.moveAisleUp('${aisle.replace(/'/g, "\\'")}', ${index})" title="Move up" ${index === 0 ? 'disabled' : ''}>↑</button>
+                    <button class="btn-icon" onclick="app.moveAisleDown('${aisle.replace(/'/g, "\\'")}', ${index})" title="Move down" ${index === aisles.length - 1 ? 'disabled' : ''}>↓</button>
+                    <button class="btn-icon" onclick="app.editAisle('${aisle.replace(/'/g, "\\'")}')">✏️</button>
+                    <button class="btn-icon" onclick="app.deleteAisle('${aisle.replace(/'/g, "\\'")}')">🗑️</button>
+                </div>
+            `;
+        }).join('');
+    }
+
+    async addAisle() {
+        const input = document.getElementById('new-aisle-input');
+        const aisleName = input.value.trim();
+
+        if (!aisleName) {
+            alert('Please enter an aisle name');
+            return;
+        }
+
+        try {
+            await this.store.addAisle(aisleName);
+            input.value = '';
+            this.renderAislesList();
+            this.updateAllAisleDropdowns();
+        } catch (error) {
+            alert(error.message);
+        }
+    }
+
+    async editAisle(oldName) {
+        const newName = prompt('Enter new aisle name:', oldName);
+        if (!newName || newName === oldName) return;
+
+        try {
+            await this.store.updateAisle(oldName, newName);
+            this.renderAislesList();
+            this.updateAllAisleDropdowns();
+            if (this.currentView === 'categories') {
+                this.renderCategories();
+            }
+        } catch (error) {
+            alert(error.message);
+        }
+    }
+
+    async deleteAisle(aisleName) {
+        const productsCount = this.store.masterProductList.filter(p => p.aisle === aisleName).length;
+
+        if (productsCount > 0) {
+            alert(`Cannot delete "${aisleName}": ${productsCount} product${productsCount === 1 ? ' is' : 's are'} using this aisle.\n\nPlease reassign or delete those products first.`);
+            return;
+        }
+
+        if (!confirm(`Delete aisle "${aisleName}"?`)) return;
+
+        try {
+            await this.store.deleteAisle(aisleName);
+            this.renderAislesList();
+            this.updateAllAisleDropdowns();
+        } catch (error) {
+            alert(error.message);
+        }
+    }
+
+    async moveAisleUp(aisleName, currentIndex) {
+        if (currentIndex === 0) return;
+        await this.store.moveAisle(aisleName, 'up');
+        this.renderAislesList();
+        this.updateAllAisleDropdowns();
+        if (this.currentView === 'categories') {
+            this.renderCategories();
+        }
+    }
+
+    async moveAisleDown(aisleName, currentIndex) {
+        if (currentIndex === this.store.aisles.length - 1) return;
+        await this.store.moveAisle(aisleName, 'down');
+        this.renderAislesList();
+        this.updateAllAisleDropdowns();
+        if (this.currentView === 'categories') {
+            this.renderCategories();
+        }
+    }
+
+    updateAllAisleDropdowns() {
+        const dropdownIds = [
+            'manual-item-category',
+            'category-aisle-select',
+            'new-ingredient-category',
+            'product-aisle-select',
+            'edit-product-aisle-select'
+        ];
+
+        const aisles = this.store.aisles;
+
+        dropdownIds.forEach(id => {
+            const select = document.getElementById(id);
+            if (!select) return;
+
+            // Save current value
+            const currentValue = select.value;
+
+            // Rebuild options
+            select.innerHTML = aisles.map(aisle =>
+                `<option value="${aisle}">${aisle}</option>`
+            ).join('');
+
+            // Restore value if it still exists
+            if (aisles.includes(currentValue)) {
+                select.value = currentValue;
+            }
+        });
     }
 
     // Enhanced Meal Creation - Ingredient Selection

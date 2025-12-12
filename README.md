@@ -377,7 +377,7 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 - [ ] Meal tags/categories (vegetarian, quick, etc.)
 - [ ] Recipe ratings and notes
 - [ ] Integration with recipe websites
-- [ ] Dark mode
+- [x] Dark mode
 
 **Want to contribute? Pick an item from the roadmap and submit a PR!**
 

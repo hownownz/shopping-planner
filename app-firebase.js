@@ -1180,6 +1180,8 @@ class App {
         this.maxUndoStack = 10; // Keep last 10 actions
         this.selectedIngredients = new Map(); // Track selected ingredients for meal creation: productName -> quantity
         this.ingredientSearchTerm = ''; // Track search term for ingredient selection
+        this.selectedCategoryProducts = new Set(); // Track selected products for category creation
+        this.categoryProductSearchTerm = ''; // Track search term for category product selection
     }
 
     async initialize() {
@@ -1367,6 +1369,12 @@ class App {
         document.getElementById('cancel-category-btn').addEventListener('click', () => this.closeCategoryModal());
         document.getElementById('save-category-btn').addEventListener('click', () => this.saveCategory());
         document.getElementById('delete-category-btn').addEventListener('click', () => this.deleteCategory());
+
+        // Category product selection search
+        document.getElementById('category-product-search-input').addEventListener('input', (e) => {
+            this.categoryProductSearchTerm = e.target.value;
+            this.renderCategoryProductSelection();
+        });
 
         // Product modal
         document.getElementById('add-product-btn').addEventListener('click', () => this.openProductModal());
@@ -2300,50 +2308,165 @@ class App {
         const modal = document.getElementById('category-modal');
         const title = document.getElementById('category-modal-title');
         const nameInput = document.getElementById('category-name-input');
-        const itemsInput = document.getElementById('category-items-input');
-        const aisleSelect = document.getElementById('category-aisle-select');
         const deleteBtn = document.getElementById('delete-category-btn');
+
+        // Reset selection state
+        this.selectedCategoryProducts.clear();
+        this.categoryProductSearchTerm = '';
+        document.getElementById('category-product-search-input').value = '';
 
         if (categoryId) {
             const category = this.store.categories.find(c => c.id === categoryId);
             title.textContent = 'Edit Quick-Add Group';
             nameInput.value = category.name;
-            itemsInput.value = category.items.join('\n');
-            aisleSelect.value = category.aisle;
+
+            // Pre-select products that are in this category
+            category.items.forEach(item => {
+                this.selectedCategoryProducts.add(item);
+            });
+
             deleteBtn.style.display = 'block';
         } else {
             title.textContent = 'Add Quick-Add Group';
             nameInput.value = '';
-            itemsInput.value = '';
-            aisleSelect.value = 'Misc';
             deleteBtn.style.display = 'none';
         }
 
         modal.classList.add('active');
+        this.renderCategoryProductSelection();
+        this.updateCategorySelectedProductsList();
         nameInput.focus();
     }
 
     closeCategoryModal() {
         document.getElementById('category-modal').classList.remove('active');
         this.editingCategoryId = null;
+        this.selectedCategoryProducts.clear();
+        this.categoryProductSearchTerm = '';
+    }
+
+    renderCategoryProductSelection() {
+        const container = document.getElementById('category-product-selection-area');
+        const searchTerm = this.categoryProductSearchTerm.toLowerCase();
+
+        // Get all aisles and products
+        const aisles = this.store.getAllAisles();
+
+        let html = '';
+
+        aisles.forEach(aisle => {
+            const products = this.store.getProductsByAisle(aisle);
+
+            // Filter products by search term
+            const filteredProducts = searchTerm
+                ? products.filter(p => p.name.toLowerCase().includes(searchTerm))
+                : products;
+
+            if (filteredProducts.length === 0) return; // Skip empty aisles
+
+            html += `
+                <div class="category-product-aisle-group" style="margin-bottom: 16px;">
+                    <div style="font-weight: 600; font-size: 14px; color: var(--text-primary); margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid var(--border);">
+                        ${aisle} (${filteredProducts.length})
+                    </div>
+                    <div class="category-product-list">
+                        ${filteredProducts.map(product => {
+                            const isSelected = this.selectedCategoryProducts.has(product.name);
+
+                            return `
+                                <div class="category-product-item" style="display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 4px; ${isSelected ? 'background: #e0f2fe;' : ''} margin-bottom: 4px;">
+                                    <input
+                                        type="checkbox"
+                                        class="category-product-checkbox"
+                                        data-product="${product.name}"
+                                        ${isSelected ? 'checked' : ''}
+                                        style="cursor: pointer;"
+                                    />
+                                    <label style="flex: 1; cursor: pointer; font-size: 14px; margin: 0;" data-product="${product.name}">
+                                        ${product.name}
+                                    </label>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+        });
+
+        if (!html) {
+            html = '<p style="text-align: center; color: var(--text-secondary); padding: 20px;">No products found</p>';
+        }
+
+        container.innerHTML = html;
+
+        // Attach event listeners
+        container.querySelectorAll('.category-product-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', (e) => {
+                const productName = e.target.dataset.product;
+                if (e.target.checked) {
+                    this.selectedCategoryProducts.add(productName);
+                } else {
+                    this.selectedCategoryProducts.delete(productName);
+                }
+                this.updateCategorySelectedProductsList();
+                this.renderCategoryProductSelection(); // Re-render to update highlighting
+            });
+        });
+
+        // Also allow clicking labels to toggle
+        container.querySelectorAll('label[data-product]').forEach(label => {
+            label.addEventListener('click', (e) => {
+                const productName = e.target.dataset.product;
+                const checkbox = container.querySelector(`input[data-product="${productName}"]`);
+                checkbox.checked = !checkbox.checked;
+                checkbox.dispatchEvent(new Event('change'));
+            });
+        });
+    }
+
+    updateCategorySelectedProductsList() {
+        const container = document.getElementById('category-selected-products-list');
+        const countSpan = document.getElementById('category-selected-count');
+        const products = Array.from(this.selectedCategoryProducts).sort();
+
+        countSpan.textContent = products.length;
+
+        if (products.length === 0) {
+            container.innerHTML = '<p style="color: var(--text-secondary); text-align: center; padding: 20px 0;">No products selected yet</p>';
+            return;
+        }
+
+        container.innerHTML = products.map(productName => `
+            <span style="display: inline-block; background: #e0f2fe; color: #0369a1; padding: 4px 8px; border-radius: 4px; margin: 2px; font-size: 13px;">
+                ${productName}
+                <button onclick="app.removeCategoryProduct('${productName.replace(/'/g, "\\'")}'); event.stopPropagation();" style="border: none; background: none; color: #0369a1; cursor: pointer; margin-left: 4px; font-weight: bold;">×</button>
+            </span>
+        `).join('');
+    }
+
+    removeCategoryProduct(productName) {
+        this.selectedCategoryProducts.delete(productName);
+        this.updateCategorySelectedProductsList();
+        this.renderCategoryProductSelection();
     }
 
     async saveCategory() {
         const name = document.getElementById('category-name-input').value.trim();
-        const itemsText = document.getElementById('category-items-input').value.trim();
-        const aisle = document.getElementById('category-aisle-select').value;
+        const items = Array.from(this.selectedCategoryProducts);
 
-        if (!name || !itemsText) {
-            alert('Please fill in category name and items');
+        if (!name) {
+            alert('Please enter a category name');
             return;
         }
 
-        const items = itemsText.split('\n').filter(i => i.trim() !== '');
+        if (items.length === 0) {
+            alert('Please select at least one product');
+            return;
+        }
 
         const category = {
             name,
             items,
-            aisle,
             icon: '📦' // Default icon, could make this customizable
         };
 

@@ -9,7 +9,7 @@
     <title>Shopping Planner</title>
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icon-192.png">
-    <link rel="stylesheet" href="styles.css?v=14">
+    <link rel="stylesheet" href="styles.css?v=15">
 </head>
 <body>
     <div class="app-container">
@@ -166,7 +166,7 @@
 
     <!-- Modal for managing categories -->
     <div class="modal" id="category-modal">
-        <div class="modal-content">
+        <div class="modal-content" style="max-width: 800px;">
             <div class="modal-header">
                 <h2 id="category-modal-title">Add Quick-Add Group</h2>
                 <button class="close-btn" id="close-category-modal">&times;</button>
@@ -175,15 +175,23 @@
                 <label>Category Name</label>
                 <input type="text" id="category-name-input" placeholder="e.g., Kids Food">
 
-                <label>Items (one per line)</label>
-                <textarea id="category-items-input" rows="10" placeholder="e.g.,&#10;Weetbix&#10;Up n Go 12pack&#10;Pouches (yogurt etc)"></textarea>
+                <div style="margin-top: 20px;">
+                    <label>Select Products from Master List</label>
+                    <input type="text" id="category-product-search-input" placeholder="Search products..." style="margin-bottom: 10px;">
 
-                <label>Aisle Category</label>
-                <select id="category-aisle-select">
-                    <!-- Populated dynamically by JavaScript -->
-                </select>
+                    <div id="category-product-selection-area" style="max-height: 400px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; padding: 12px; background: var(--surface);">
+                        <!-- Populated by JavaScript -->
+                    </div>
+                </div>
 
-                <div class="modal-actions">
+                <div style="margin-top: 15px;">
+                    <label style="font-weight: 600;">Selected Products (<span id="category-selected-count">0</span>)</label>
+                    <div id="category-selected-products-list" style="min-height: 60px; max-height: 120px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; padding: 10px; background: #fff; margin-top: 8px;">
+                        <p style="color: var(--text-secondary); text-align: center; padding: 20px 0;">No products selected yet</p>
+                    </div>
+                </div>
+
+                <div class="modal-actions" style="margin-top: 20px;">
                     <button class="btn-secondary" id="cancel-category-btn">Cancel</button>
                     <button class="btn-danger" id="delete-category-btn" style="display: none;">Delete</button>
                     <button class="btn-primary" id="save-category-btn">Save</button>
@@ -374,6 +382,6 @@
         </div>
     </div>
 
-    <script type="module" src="app-firebase.js?v=14"></script>
+    <script type="module" src="app-firebase.js?v=15"></script>
 </body>
 </html>

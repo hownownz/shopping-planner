@@ -600,6 +600,6 @@ A: Yes! When you first sign up, the app automatically imports any existing local
 
 ---
 
-**Last Updated:** 2025-01-29
+**Last Updated:** 2025-12-13
 
-**Version:** 1.0.0
+**App Version:** v23

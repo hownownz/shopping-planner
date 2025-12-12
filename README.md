@@ -33,23 +33,44 @@ Plan your meals, generate organized shopping lists by aisle, and sync seamlessly
 
 **🛒 Smart Shopping Lists**
 - Automatically organized by store aisle
+- Collapsible aisles with progress tracking (e.g., "5/12")
 - Check off items as you shop
-- Manually add extra items
+- Uncheck All button for quick reset
+- Manually add extra items with autocomplete
 - Remove checked items with one tap
+- Change item category on the fly
+- Quantity counter (×2 if item in multiple meals)
 - Category-based quick-add (e.g., "Kids Food", "Pet Supplies")
 
 **🍕 Meal Management**
 - Build your personal meal database
+- Checkbox-based ingredient selection from master product list
 - Easy meal selection for the week
 - Search and filter meals
+- Drag-and-drop meal reordering
 - Edit and delete meals anytime
 - Import meals in bulk
+- Ingredient consolidation tool with fuzzy matching
+
+**🛍️ Master Product List**
+- 180+ pre-populated products organized by aisle
+- Search and filter products
+- Sort alphabetically or by usage frequency
+- Collapse/Expand All controls
+- Auto-expand aisles when searching
+- Duplicate detection when adding products
+- See which meals use each product
+- Edit product names and aisles
+- Recently Used section (top 15 products)
+- Export/Import product list (JSON)
+- Undo last deletion
 
 **📊 Data Control**
 - Export your data (JSON + CSV formats)
 - Import from backup files
 - Import from Google Sheets
 - Migration tool from localStorage
+- Reset usage statistics
 - No vendor lock-in
 
 ---
@@ -368,16 +389,29 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 
 ## 🎯 Roadmap
 
-**Potential future enhancements:**
+**Completed:**
+- [x] Dark mode
+- [x] Master product list with full CRUD
+- [x] Checkbox-based meal creation
+- [x] Ingredient name consolidation
+- [x] Usage frequency tracking
+- [x] Undo functionality
+
+**High Priority:**
+- [ ] Keyboard shortcuts (Enter, Escape)
+- [ ] "Add All from Aisle" button
+- [ ] Product notes/variants (e.g., "Milk (Anchor Blue Top 2L)")
+
+**Future Enhancements:**
+- [ ] Meal tags/categories (vegetarian, quick, etc.)
+- [ ] Shopping list templates
 - [ ] Recipe instructions (not just ingredients)
 - [ ] Recipe images/photos
 - [ ] Meal calendar view
 - [ ] Nutritional information
 - [ ] Share meals with other users
-- [ ] Meal tags/categories (vegetarian, quick, etc.)
 - [ ] Recipe ratings and notes
 - [ ] Integration with recipe websites
-- [x] Dark mode
 
 **Want to contribute? Pick an item from the roadmap and submit a PR!**
 

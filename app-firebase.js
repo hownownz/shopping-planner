@@ -694,10 +694,9 @@ class DataStore {
             const key = item.text.toLowerCase().trim();
             if (itemMap.has(key)) {
                 const existing = itemMap.get(key);
-                // Increment count for duplicate items from meals
-                if (item.source === 'meal') {
-                    existing.count = (existing.count || 1) + 1;
-                }
+                // Increment count for ANY duplicate items
+                existing.count = (existing.count || 1) + 1;
+
                 // Keep the item that's not checked, or the first one if both same status
                 if (!existing.checked && item.checked) {
                     return; // Keep existing

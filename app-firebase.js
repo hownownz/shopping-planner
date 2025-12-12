@@ -784,6 +784,9 @@ class DataStore {
     }
 
     async addManualItem(text, category) {
+        console.log('📝 addManualItem called:', text, category);
+        console.log('📝 Shopping list before:', this.shoppingList.length, 'items');
+
         const item = {
             text: text.trim(),
             category: category,
@@ -791,12 +794,16 @@ class DataStore {
             source: 'manual'
         };
         this.shoppingList.push(item);
+        console.log('📝 Shopping list after push:', this.shoppingList.length, 'items');
+
         this.shoppingList = this.deduplicateItems(this.shoppingList);
+        console.log('📝 Shopping list after dedup:', this.shoppingList.length, 'items');
 
         // Track usage
         this.trackItemUsage(text.trim());
 
         await this.save('shoppingList', this.shoppingList);
+        console.log('📝 Shopping list saved');
     }
 
     // Check if an item is already in the shopping list
@@ -1554,9 +1561,11 @@ class App {
     }
 
     renderShoppingList() {
+        console.log('🛒 renderShoppingList called, items:', this.store.shoppingList.length);
         const container = document.getElementById('shopping-list');
-        
+
         if (this.store.shoppingList.length === 0) {
+            console.log('🛒 Shopping list is empty, showing empty state');
             container.innerHTML = `
                 <div class="empty-state">
                     <div class="empty-state-icon">🛒</div>

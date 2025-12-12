@@ -695,7 +695,9 @@ class DataStore {
             if (itemMap.has(key)) {
                 const existing = itemMap.get(key);
                 // Increment count for ANY duplicate items
-                existing.count = (existing.count || 1) + 1;
+                // Ensure count is a number (handle undefined, null, or missing)
+                const currentCount = typeof existing.count === 'number' ? existing.count : 1;
+                existing.count = currentCount + 1;
 
                 // Keep the item that's not checked, or the first one if both same status
                 if (!existing.checked && item.checked) {
@@ -815,6 +817,9 @@ class DataStore {
     }
 
     async addManualItem(text, category) {
+        console.log(`📝 addManualItem called: ${text}, ${category}`);
+        console.log(`📝 Shopping list before add:`, this.shoppingList.map(i => `${i.text} (count: ${i.count})`));
+
         const item = {
             text: text.trim(),
             category: category,
@@ -822,7 +827,10 @@ class DataStore {
             source: 'manual'
         };
         this.shoppingList.push(item);
+
+        console.log(`📝 Shopping list after push, before dedup:`, this.shoppingList.map(i => `${i.text} (count: ${i.count})`));
         this.shoppingList = this.deduplicateItems(this.shoppingList);
+        console.log(`📝 Shopping list after dedup:`, this.shoppingList.map(i => `${i.text} (count: ${i.count})`));
 
         // Track usage
         this.trackItemUsage(text.trim());

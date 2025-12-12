@@ -704,8 +704,10 @@ class DataStore {
                     return; // Keep existing
                 }
             } else {
-                // First occurrence - set initial count
-                item.count = 1;
+                // First occurrence - preserve existing count if it has one, otherwise set to 1
+                if (typeof item.count !== 'number') {
+                    item.count = 1;
+                }
                 itemMap.set(key, item);
             }
         });
@@ -817,9 +819,6 @@ class DataStore {
     }
 
     async addManualItem(text, category) {
-        console.log(`📝 addManualItem called: ${text}, ${category}`);
-        console.log(`📝 Shopping list before add:`, this.shoppingList.map(i => `${i.text} (count: ${i.count})`));
-
         const item = {
             text: text.trim(),
             category: category,
@@ -827,10 +826,7 @@ class DataStore {
             source: 'manual'
         };
         this.shoppingList.push(item);
-
-        console.log(`📝 Shopping list after push, before dedup:`, this.shoppingList.map(i => `${i.text} (count: ${i.count})`));
         this.shoppingList = this.deduplicateItems(this.shoppingList);
-        console.log(`📝 Shopping list after dedup:`, this.shoppingList.map(i => `${i.text} (count: ${i.count})`));
 
         // Track usage
         this.trackItemUsage(text.trim());

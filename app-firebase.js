@@ -2113,8 +2113,8 @@ class App {
         const sortedMeals = this.store.getSortedMeals();
 
         container.innerHTML = sortedMeals.map((meal, index) => `
-            <div class="database-item" draggable="true" data-id="${meal.id}" data-index="${index}">
-                <div class="drag-handle">⋮⋮</div>
+            <div class="database-item" draggable="true" data-id="${meal.id}" data-index="${index}" style="display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px;">
+                <div class="drag-handle" style="margin-right: 0;">⋮⋮</div>
                 <div class="database-item-info">
                     <h3>${meal.name}</h3>
                     <div class="database-item-ingredients">${meal.ingredients.slice(0, 3).join(', ')}${meal.ingredients.length > 3 ? '...' : ''}</div>

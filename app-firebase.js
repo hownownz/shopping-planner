@@ -1215,6 +1215,7 @@ class App {
         this.maxUndoStack = 10; // Keep last 10 actions
         this.selectedIngredients = new Map(); // Track selected ingredients for meal creation: productName -> quantity
         this.ingredientSearchTerm = ''; // Track search term for ingredient selection
+        this.expandedIngredientAisles = new Set(); // Track which ingredient aisles are expanded in meal modal
         this.selectedCategoryProducts = new Set(); // Track selected products for category creation
         this.categoryProductSearchTerm = ''; // Track search term for category product selection
     }
@@ -2283,6 +2284,7 @@ class App {
         this.editingMealId = null;
         this.selectedIngredients = new Map();
         this.ingredientSearchTerm = '';
+        this.expandedIngredientAisles = new Set(); // Reset expanded aisles
     }
 
     async saveMeal() {
@@ -3346,13 +3348,13 @@ class App {
 
             if (filteredProducts.length === 0) return; // Skip empty aisles
 
-            // When searching, expand all; otherwise start collapsed
-            const isExpanded = searchTerm !== '';
+            // When searching, expand all; otherwise check if aisle is in expanded set
+            const isExpanded = searchTerm !== '' || this.expandedIngredientAisles.has(aisle);
             const aisleId = `ingredient-aisle-${aisleIndex}`;
 
             html += `
                 <div class="ingredient-aisle-group" style="margin-bottom: 8px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: white;">
-                    <div class="aisle-header" data-aisle-id="${aisleId}" style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: var(--surface); cursor: pointer; user-select: none; border-bottom: 1px solid var(--border);">
+                    <div class="aisle-header" data-aisle-id="${aisleId}" data-aisle-name="${aisle}" style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: var(--surface); cursor: pointer; user-select: none; border-bottom: 1px solid var(--border);">
                         <div style="display: flex; align-items: center; gap: 8px;">
                             <span class="aisle-toggle" style="font-size: 12px; transition: transform 0.2s;">${isExpanded ? '▼' : '▶'}</span>
                             <span style="font-weight: 600; font-size: 14px; color: var(--text-primary);">${aisle}</span>
@@ -3402,15 +3404,18 @@ class App {
         container.querySelectorAll('.aisle-header').forEach(header => {
             header.addEventListener('click', (e) => {
                 const aisleId = e.currentTarget.dataset.aisleId;
+                const aisleName = e.currentTarget.dataset.aisleName;
                 const productList = document.getElementById(aisleId);
                 const toggle = e.currentTarget.querySelector('.aisle-toggle');
 
                 if (productList.style.display === 'none') {
                     productList.style.display = 'block';
                     toggle.textContent = '▼';
+                    this.expandedIngredientAisles.add(aisleName); // Track expanded state
                 } else {
                     productList.style.display = 'none';
                     toggle.textContent = '▶';
+                    this.expandedIngredientAisles.delete(aisleName); // Track collapsed state
                 }
             });
         });

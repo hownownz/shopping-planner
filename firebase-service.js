@@ -204,12 +204,14 @@ class FirebaseService {
             this.notifySyncCallbacks('shoppingList', items);
         });
 
-        // Listen to selected meals
+        // Listen to the weekly meal plan (one meal id per day of week, or null)
         const selectedRef = this.imports.doc(this.db, `users/${userId}/data/selected`);
+        const weekDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
         const selectedUnsubscribe = this.imports.onSnapshot(selectedRef, (doc) => {
-            if (doc.exists()) {
-                this.notifySyncCallbacks('selectedMeals', doc.data().meals || []);
-            }
+            const raw = (doc.exists() && doc.data().mealsByDay) || {};
+            const mealsByDay = {};
+            weekDays.forEach(day => mealsByDay[day] = raw[day] || null);
+            this.notifySyncCallbacks('selectedMealsByDay', mealsByDay);
         });
 
         // Listen to ingredient mappings
@@ -504,7 +506,7 @@ class FirebaseService {
         }
     }
 
-    async saveSelectedMeals(selectedMeals) {
+    async saveSelectedMealsByDay(mealsByDay) {
         if (!this.currentUser) return;
 
         const userId = this.currentUser.uid;
@@ -512,12 +514,12 @@ class FirebaseService {
 
         try {
             await this.imports.setDoc(selectedRef, {
-                meals: selectedMeals,
+                mealsByDay: mealsByDay,
                 updatedAt: new Date().toISOString()
             });
-            console.log('✅ Selected meals synced');
+            console.log('✅ Weekly meal plan synced');
         } catch (error) {
-            console.error('❌ Error syncing selected meals:', error);
+            console.error('❌ Error syncing weekly meal plan:', error);
         }
     }
 
@@ -670,12 +672,10 @@ class FirebaseService {
             const meals = JSON.parse(localStorage.getItem('meals') || '[]');
             const categories = JSON.parse(localStorage.getItem('categories') || '[]');
             const shoppingList = JSON.parse(localStorage.getItem('shoppingList') || '[]');
-            const selectedMeals = JSON.parse(localStorage.getItem('selectedMeals') || '[]');
 
             if (meals.length > 0) await this.saveMeals(meals);
             if (categories.length > 0) await this.saveCategories(categories);
             if (shoppingList.length > 0) await this.saveShoppingList(shoppingList);
-            if (selectedMeals.length > 0) await this.saveSelectedMeals(selectedMeals);
 
             console.log('✅ Migration complete');
             return { success: true };

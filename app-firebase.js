@@ -4,7 +4,7 @@ import firebaseService from './firebase-service.js';
 class DataStore {
     constructor() {
         this.meals = [];
-        this.selectedMeals = [];
+        this.selectedMealsByDay = this.getDefaultSelectedMealsByDay();
         this.shoppingList = [];
         this.categories = [];
         this.ingredientMappings = {}; // Custom ingredient-to-category mappings
@@ -20,7 +20,7 @@ class DataStore {
 
         // Load from localStorage first (for offline support)
         this.meals = this.loadLocal('meals') || [];
-        this.selectedMeals = this.loadLocal('selectedMeals') || [];
+        this.selectedMealsByDay = this.loadLocal('selectedMealsByDay') || this.getDefaultSelectedMealsByDay();
         this.shoppingList = this.loadLocal('shoppingList') || [];
         this.categories = this.loadLocal('categories') || this.getDefaultCategories();
         this.ingredientMappings = this.loadLocal('ingredientMappings') || {};
@@ -55,9 +55,9 @@ class DataStore {
                     this.saveLocal('shoppingList', data);
                     if (window.app) window.app.render();
                     break;
-                case 'selectedMeals':
-                    this.selectedMeals = data;
-                    this.saveLocal('selectedMeals', data);
+                case 'selectedMealsByDay':
+                    this.selectedMealsByDay = data;
+                    this.saveLocal('selectedMealsByDay', data);
                     if (window.app) window.app.render();
                     break;
                 case 'ingredientMappings':
@@ -115,8 +115,8 @@ class DataStore {
                 case 'shoppingList':
                     await firebaseService.saveShoppingList(data);
                     break;
-                case 'selectedMeals':
-                    await firebaseService.saveSelectedMeals(data);
+                case 'selectedMealsByDay':
+                    await firebaseService.saveSelectedMealsByDay(data);
                     break;
                 case 'ingredientMappings':
                     await firebaseService.saveIngredientMappings(data);
@@ -642,37 +642,47 @@ class DataStore {
 
     async deleteMeal(id) {
         this.meals = this.meals.filter(m => m.id !== id);
-        this.selectedMeals = this.selectedMeals.filter(mId => mId !== id);
+        let dayMapChanged = false;
+        this.getWeekDays().forEach(day => {
+            if (this.selectedMealsByDay[day] === id) {
+                this.selectedMealsByDay[day] = null;
+                dayMapChanged = true;
+            }
+        });
         await this.save('meals', this.meals);
-        await this.save('selectedMeals', this.selectedMeals);
-        
+        if (dayMapChanged) {
+            await this.save('selectedMealsByDay', this.selectedMealsByDay);
+        }
+
         if (this.syncEnabled) {
             await firebaseService.deleteMeal(id);
         }
     }
 
-    async toggleMealSelection(id) {
-        const index = this.selectedMeals.indexOf(id);
-        if (index === -1) {
-            this.selectedMeals.push(id);
-        } else {
-            this.selectedMeals.splice(index, 1);
-        }
-        await this.save('selectedMeals', this.selectedMeals);
+    async setMealForDay(day, mealId) {
+        this.selectedMealsByDay[day] = mealId || null;
+        await this.save('selectedMealsByDay', this.selectedMealsByDay);
         this.updateShoppingList();
     }
 
-    async clearSelectedMeals() {
-        this.selectedMeals = [];
-        await this.save('selectedMeals', this.selectedMeals);
+    async clearWeek() {
+        this.selectedMealsByDay = this.getDefaultSelectedMealsByDay();
+        await this.save('selectedMealsByDay', this.selectedMealsByDay);
+        this.updateShoppingList();
+    }
+
+    async setAllDays(map) {
+        this.selectedMealsByDay = { ...this.getDefaultSelectedMealsByDay(), ...map };
+        await this.save('selectedMealsByDay', this.selectedMealsByDay);
         this.updateShoppingList();
     }
 
     // Shopping list methods
     async updateShoppingList() {
-        // Get ingredients from selected meals
+        // Get ingredients from selected meals (a meal assigned to two days counts twice)
         const mealIngredients = [];
-        this.selectedMeals.forEach(mealId => {
+        Object.values(this.selectedMealsByDay).forEach(mealId => {
+            if (!mealId) return;
             const meal = this.meals.find(m => m.id === mealId);
             if (meal) {
                 meal.ingredients.forEach(ingredient => {
@@ -1247,6 +1257,16 @@ class DataStore {
         // Return sorted by sortOrder
         return [...this.meals].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
     }
+
+    getWeekDays() {
+        return ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    }
+
+    getDefaultSelectedMealsByDay() {
+        const obj = {};
+        this.getWeekDays().forEach(day => obj[day] = null);
+        return obj;
+    }
 }
 
 // UI Controller
@@ -1268,6 +1288,9 @@ class App {
         this.selectedIngredients = new Map(); // Track selected ingredients for meal creation: productName -> quantity
         this.ingredientSearchTerm = ''; // Track search term for ingredient selection
         this.expandedIngredientAisles = new Set(); // Track which ingredient aisles are expanded in meal modal
+        this.assigningDay = null; // Which day's meal picker panel is open, or null
+        this.mealPickerSearchTerm = ''; // Search term inside the meal picker panel
+        this.mealBrowseSearchTerm = ''; // Search term for the read-only all-meals browse list
     }
 
     async initialize() {
@@ -1343,7 +1366,24 @@ class App {
                     // Restore deleted meal
                     this.store.meals.push(action.data);
                     await this.store.save('meals', this.store.meals);
-                    this.renderMealsList();
+                    this.renderWeekCalendar();
+                    this.renderMealBrowseList(this.mealBrowseSearchTerm);
+                    break;
+
+                case 'SET_DAY':
+                    // Restore a day's previous meal assignment (covers both assign and unassign)
+                    await this.store.setMealForDay(action.data.day, action.data.prevMealId);
+                    this.renderWeekCalendar();
+                    this.renderMealPickerPanel();
+                    this.renderCategories();
+                    break;
+
+                case 'CLEAR_WEEK':
+                    // Restore the whole week's plan
+                    await this.store.setAllDays(action.data);
+                    this.renderWeekCalendar();
+                    this.renderMealPickerPanel();
+                    this.renderCategories();
                     break;
 
                 case 'DELETE_PRODUCT':
@@ -1463,9 +1503,10 @@ class App {
         document.getElementById('cancel-edit-product-btn').addEventListener('click', () => this.closeEditProductModal());
         document.getElementById('save-edit-product-btn').addEventListener('click', () => this.saveEditProduct());
 
-        // Meal search
+        // Meal browse-list search
         document.getElementById('meal-search').addEventListener('input', (e) => {
-            this.renderMealsList(e.target.value);
+            this.mealBrowseSearchTerm = e.target.value;
+            this.renderMealBrowseList(e.target.value);
         });
 
         // Shopping list actions
@@ -1476,7 +1517,7 @@ class App {
         document.getElementById('uncheck-all-btn').addEventListener('click', () => this.uncheckAllItems());
         document.getElementById('clear-checked-btn').addEventListener('click', () => this.clearCheckedItems());
         document.getElementById('clear-list-btn').addEventListener('click', () => this.clearAllItems());
-        document.getElementById('clear-meals-btn').addEventListener('click', () => this.clearSelectedMeals());
+        document.getElementById('clear-meals-btn').addEventListener('click', () => this.clearWeek());
         
         // Export data
         document.getElementById('export-data-btn').addEventListener('click', () => this.exportData());
@@ -1556,7 +1597,9 @@ class App {
     render() {
         switch(this.currentView) {
             case 'meals':
-                this.renderMealsList();
+                this.renderWeekCalendar();
+                this.renderMealPickerPanel();
+                this.renderMealBrowseList(this.mealBrowseSearchTerm);
                 break;
             case 'shopping':
                 this.renderShoppingList();
@@ -1586,7 +1629,136 @@ class App {
         `).join('');
     }
 
-    renderMealsList(searchTerm = '') {
+    getDayLabels(short = false) {
+        return short
+            ? { monday: 'Mon', tuesday: 'Tue', wednesday: 'Wed', thursday: 'Thu', friday: 'Fri', saturday: 'Sat', sunday: 'Sun' }
+            : { monday: 'Monday', tuesday: 'Tuesday', wednesday: 'Wednesday', thursday: 'Thursday', friday: 'Friday', saturday: 'Saturday', sunday: 'Sunday' };
+    }
+
+    renderWeekCalendar() {
+        const container = document.getElementById('week-calendar-grid');
+        const dayLabels = this.getDayLabels(true);
+
+        container.innerHTML = this.store.getWeekDays().map(day => {
+            const mealId = this.store.selectedMealsByDay[day];
+            const meal = mealId ? this.store.meals.find(m => m.id === mealId) : null;
+            const isActive = this.assigningDay === day;
+
+            return `
+                <div class="day-cell ${meal ? 'filled' : ''} ${isActive ? 'active' : ''}" data-day="${day}">
+                    <div class="day-label">${dayLabels[day]}</div>
+                    ${meal ? `
+                        <div class="day-meal-name">${meal.name}</div>
+                        <div class="day-meal-count">${meal.ingredients.length} ingredients</div>
+                        <button class="day-clear-btn" data-day="${day}" title="Remove">&times;</button>
+                    ` : `
+                        <div class="day-empty">+ Assign meal</div>
+                    `}
+                </div>
+            `;
+        }).join('');
+
+        // Click a day cell (empty or filled) to open/close its picker
+        container.querySelectorAll('.day-cell').forEach(cell => {
+            cell.addEventListener('click', () => {
+                const day = cell.dataset.day;
+                this.assigningDay = (this.assigningDay === day) ? null : day;
+                this.mealPickerSearchTerm = '';
+                this.renderWeekCalendar();
+                this.renderMealPickerPanel();
+            });
+        });
+
+        // The x button unassigns the day directly, without opening the picker
+        container.querySelectorAll('.day-clear-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const day = btn.dataset.day;
+                const prevMealId = this.store.selectedMealsByDay[day];
+                if (!prevMealId) return;
+                this.pushUndoAction({ type: 'SET_DAY', data: { day, prevMealId } });
+                await this.store.setMealForDay(day, null);
+                if (this.assigningDay === day) this.assigningDay = null;
+                this.renderWeekCalendar();
+                this.renderMealPickerPanel();
+                this.renderCategories();
+            });
+        });
+    }
+
+    renderMealPickerPanel() {
+        const panel = document.getElementById('meal-picker-panel');
+
+        if (!this.assigningDay) {
+            panel.hidden = true;
+            panel.innerHTML = '';
+            return;
+        }
+
+        const day = this.assigningDay;
+        const dayLabels = this.getDayLabels(false);
+        const searchTerm = this.mealPickerSearchTerm;
+        const meals = this.store.getSortedMeals().filter(meal =>
+            searchTerm === '' || meal.name.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+
+        panel.hidden = false;
+        panel.innerHTML = `
+            <div class="picker-header">
+                <span>Assign a meal to ${dayLabels[day]}</span>
+                <button class="btn-secondary" id="cancel-picker-btn">Cancel</button>
+            </div>
+            <div class="search-box">
+                <input type="text" id="meal-picker-search" placeholder="Search meals..." value="${searchTerm}">
+            </div>
+            <div class="meals-list">
+                ${meals.length === 0 ? `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🍽️</div>
+                        <div class="empty-state-text">${searchTerm ? 'No meals found' : 'No meals yet. Add some in the Database tab!'}</div>
+                    </div>
+                ` : meals.map(meal => {
+                    const isCurrent = this.store.selectedMealsByDay[day] === meal.id;
+                    return `
+                        <div class="meal-item ${isCurrent ? 'selected' : ''}" data-id="${meal.id}">
+                            <div class="meal-checkbox"></div>
+                            <div class="meal-info">
+                                <div class="meal-name">${meal.name}</div>
+                                <div class="meal-ingredients-count">${meal.ingredients.length} ingredients</div>
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        `;
+
+        document.getElementById('cancel-picker-btn').addEventListener('click', () => {
+            this.assigningDay = null;
+            this.renderWeekCalendar();
+            this.renderMealPickerPanel();
+        });
+
+        document.getElementById('meal-picker-search').addEventListener('input', (e) => {
+            this.mealPickerSearchTerm = e.target.value;
+            this.renderMealPickerPanel();
+        });
+
+        panel.querySelectorAll('.meal-item').forEach(item => {
+            item.addEventListener('click', async () => {
+                const mealId = item.dataset.id;
+                const prevMealId = this.store.selectedMealsByDay[day];
+                if (prevMealId === mealId) return;
+                this.pushUndoAction({ type: 'SET_DAY', data: { day, prevMealId } });
+                await this.store.setMealForDay(day, mealId);
+                this.assigningDay = null;
+                this.renderWeekCalendar();
+                this.renderMealPickerPanel();
+                this.renderCategories();
+            });
+        });
+    }
+
+    renderMealBrowseList(searchTerm = '') {
         const container = document.getElementById('meals-list');
         const sortedMeals = this.store.getSortedMeals();
         const meals = sortedMeals.filter(meal =>
@@ -1605,28 +1777,14 @@ class App {
             return;
         }
 
-        container.innerHTML = meals.map(meal => {
-            const isSelected = this.store.selectedMeals.includes(meal.id);
-            return `
-                <div class="meal-item ${isSelected ? 'selected' : ''}" data-id="${meal.id}">
-                    <div class="meal-checkbox"></div>
-                    <div class="meal-info">
-                        <div class="meal-name">${meal.name}</div>
-                        <div class="meal-ingredients-count">${meal.ingredients.length} ingredients</div>
-                    </div>
+        container.innerHTML = meals.map(meal => `
+            <div class="meal-item read-only">
+                <div class="meal-info">
+                    <div class="meal-name">${meal.name}</div>
+                    <div class="meal-ingredients-count">${meal.ingredients.length} ingredients</div>
                 </div>
-            `;
-        }).join('');
-
-        // Add click listeners
-        container.querySelectorAll('.meal-item').forEach(item => {
-            item.addEventListener('click', async () => {
-                const id = item.dataset.id;
-                await this.store.toggleMealSelection(id);
-                this.renderMealsList(searchTerm);
-                this.renderCategories(); // Update to show which items are now in list
-            });
-        });
+            </div>
+        `).join('');
     }
 
     renderShoppingList() {
@@ -2362,10 +2520,18 @@ class App {
         }
     }
 
-    async clearSelectedMeals() {
-        if (confirm('Unselect all meals? This will remove meal ingredients from your shopping list.')) {
-            await this.store.clearSelectedMeals();
-            this.renderMealsList();
+    async clearWeek() {
+        if (confirm('Clear the whole week\'s plan? This will remove meal ingredients from your shopping list.')) {
+            const prevMap = { ...this.store.selectedMealsByDay };
+            const hadAnyAssignment = Object.values(prevMap).some(id => id);
+            if (hadAnyAssignment) {
+                this.pushUndoAction({ type: 'CLEAR_WEEK', data: prevMap });
+            }
+            await this.store.clearWeek();
+            this.assigningDay = null;
+            this.renderWeekCalendar();
+            this.renderMealPickerPanel();
+            this.renderCategories();
         }
     }
 

@@ -9,7 +9,7 @@
     <title>Shopping Planner</title>
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icon-192.png">
-    <link rel="stylesheet" href="styles.css?v=23">
+    <link rel="stylesheet" href="styles.css?v=24">
 </head>
 <body>
     <div class="app-container">
@@ -17,7 +17,7 @@
         <nav class="bottom-nav">
             <button class="nav-btn active" data-view="meals">
                 <span class="nav-icon">🍽️</span>
-                <span class="nav-label">Meals</span>
+                <span class="nav-label">This Week</span>
             </button>
             <button class="nav-btn" data-view="shopping">
                 <span class="nav-icon">🛒</span>
@@ -33,18 +33,24 @@
             </button>
         </nav>
 
-        <!-- Meal Selector View -->
+        <!-- Weekly Meal Plan View -->
         <div class="view active" id="meals-view">
             <div class="view-header">
-                <h1>Select Meals</h1>
+                <h1>Weekly Plan</h1>
                 <div class="header-actions">
                     <button class="btn-secondary undo-btn" id="undo-btn" title="Undo last action" disabled>↶ Undo</button>
-                    <button class="btn-secondary" id="clear-meals-btn">Clear All</button>
+                    <button class="btn-secondary" id="clear-meals-btn">Clear Week</button>
                     <button class="icon-btn dark-mode-toggle" title="Toggle dark mode">
                         <span class="toggle-icon">🌙</span>
                     </button>
                 </div>
             </div>
+
+            <div id="week-calendar-grid" class="week-calendar-grid"></div>
+
+            <div id="meal-picker-panel" class="meal-picker-panel" hidden></div>
+
+            <div class="section-header">All Meals</div>
             <div class="search-box">
                 <input type="text" id="meal-search" placeholder="Search meals...">
             </div>
@@ -346,6 +352,6 @@
         </div>
     </div>
 
-    <script type="module" src="app-firebase.js?v=26"></script>
+    <script type="module" src="app-firebase.js?v=27"></script>
 </body>
 </html>

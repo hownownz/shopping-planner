@@ -19,7 +19,7 @@ class FirebaseService {
             const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js');
             const { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } =
                 await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');
-            const { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, updateDoc, deleteDoc, query, orderBy } =
+            const { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, updateDoc, deleteDoc, query, orderBy, writeBatch } =
                 await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
             const { initializeAppCheck, ReCaptchaV3Provider } =
                 await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-check.js');
@@ -59,7 +59,8 @@ class FirebaseService {
                 updateDoc,
                 deleteDoc,
                 query,
-                orderBy
+                orderBy,
+                writeBatch
             };
 
             // Wait for initial auth state to be resolved
@@ -141,11 +142,37 @@ class FirebaseService {
         return this.currentUser;
     }
 
+    // Ensures the one-time array-doc -> subcollection migration has run before
+    // any subcollection listener attaches, so listeners never see an empty
+    // collection and overwrite good local/cached data. Gated by a flag doc so
+    // it only actually runs once per account, across all devices.
+    async ensureSubcollectionsMigrated(userId) {
+        const statusRef = this.imports.doc(this.db, `users/${userId}/data/migrationStatus`);
+        try {
+            const statusSnap = await this.imports.getDoc(statusRef);
+            if (statusSnap.exists() && statusSnap.data().subcollectionsMigrated) {
+                return;
+            }
+
+            const result = await this.migrateToSubcollections();
+            await this.imports.setDoc(statusRef, {
+                subcollectionsMigrated: true,
+                migratedAt: new Date().toISOString(),
+                ...result
+            });
+            console.log('✅ One-time subcollection migration ran automatically:', result);
+        } catch (error) {
+            console.error('❌ Migration status check failed:', error);
+        }
+    }
+
     // Real-time sync setup
-    setupRealtimeSync() {
+    async setupRealtimeSync() {
         if (!this.currentUser) return;
 
         const userId = this.currentUser.uid;
+
+        await this.ensureSubcollectionsMigrated(userId);
 
         // Listen to meals collection
         const mealsRef = this.imports.collection(this.db, `users/${userId}/meals`);
@@ -167,12 +194,14 @@ class FirebaseService {
             this.notifySyncCallbacks('categories', categories);
         });
 
-        // Listen to shopping list
-        const shoppingRef = this.imports.doc(this.db, `users/${userId}/data/shopping`);
-        const shoppingUnsubscribe = this.imports.onSnapshot(shoppingRef, (doc) => {
-            if (doc.exists()) {
-                this.notifySyncCallbacks('shoppingList', doc.data().items || []);
-            }
+        // Listen to shopping list (one document per item)
+        const shoppingItemsRef = this.imports.collection(this.db, `users/${userId}/shoppingItems`);
+        const shoppingUnsubscribe = this.imports.onSnapshot(shoppingItemsRef, (snapshot) => {
+            const items = [];
+            snapshot.forEach((doc) => {
+                items.push({ id: doc.id, ...doc.data() });
+            });
+            this.notifySyncCallbacks('shoppingList', items);
         });
 
         // Listen to selected meals
@@ -191,12 +220,14 @@ class FirebaseService {
             }
         });
 
-        // Listen to master product list
-        const masterProductListRef = this.imports.doc(this.db, `users/${userId}/data/masterProductList`);
-        const masterProductListUnsubscribe = this.imports.onSnapshot(masterProductListRef, (doc) => {
-            if (doc.exists()) {
-                this.notifySyncCallbacks('masterProductList', doc.data().products || []);
-            }
+        // Listen to master product list (one document per product)
+        const masterProductsRef = this.imports.collection(this.db, `users/${userId}/masterProducts`);
+        const masterProductListUnsubscribe = this.imports.onSnapshot(masterProductsRef, (snapshot) => {
+            const products = [];
+            snapshot.forEach((doc) => {
+                products.push({ id: doc.id, ...doc.data() });
+            });
+            this.notifySyncCallbacks('masterProductList', products);
         });
 
         // Listen to aisles
@@ -367,6 +398,112 @@ class FirebaseService {
         }
     }
 
+    // Item-level shopping list operations (one document per item)
+    async saveShoppingItem(item) {
+        if (!this.currentUser) return;
+
+        const userId = this.currentUser.uid;
+        const itemRef = this.imports.doc(this.db, `users/${userId}/shoppingItems/${item.id}`);
+
+        try {
+            await this.imports.setDoc(itemRef, {
+                text: item.text,
+                category: item.category,
+                checked: !!item.checked,
+                source: item.source,
+                count: item.count || 1,
+                updatedAt: new Date().toISOString()
+            });
+        } catch (error) {
+            console.error('❌ Error saving shopping item:', error);
+        }
+    }
+
+    async deleteShoppingItem(id) {
+        if (!this.currentUser) return;
+
+        const userId = this.currentUser.uid;
+        const itemRef = this.imports.doc(this.db, `users/${userId}/shoppingItems/${id}`);
+
+        try {
+            await this.imports.deleteDoc(itemRef);
+        } catch (error) {
+            console.error('❌ Error deleting shopping item:', error);
+        }
+    }
+
+    // Replace the entire shopping list atomically (used when regenerating from selected meals)
+    async replaceShoppingItems(items) {
+        if (!this.currentUser) return;
+
+        const userId = this.currentUser.uid;
+
+        try {
+            const existingRef = this.imports.collection(this.db, `users/${userId}/shoppingItems`);
+            const existingSnapshot = await new Promise((resolve, reject) => {
+                const unsubscribe = this.imports.onSnapshot(existingRef, (snapshot) => {
+                    unsubscribe();
+                    resolve(snapshot);
+                }, reject);
+            });
+
+            const batch = this.imports.writeBatch(this.db);
+            existingSnapshot.forEach((doc) => {
+                batch.delete(doc.ref);
+            });
+            items.forEach((item) => {
+                const itemRef = this.imports.doc(this.db, `users/${userId}/shoppingItems/${item.id}`);
+                batch.set(itemRef, {
+                    text: item.text,
+                    category: item.category,
+                    checked: !!item.checked,
+                    source: item.source,
+                    count: item.count || 1,
+                    updatedAt: new Date().toISOString()
+                });
+            });
+            await batch.commit();
+            console.log('✅ Shopping list replaced');
+        } catch (error) {
+            console.error('❌ Error replacing shopping list:', error);
+        }
+    }
+
+    // Delete/update many shopping items atomically (clearChecked, clearAll, uncheckAll)
+    async deleteShoppingItems(ids) {
+        if (!this.currentUser || ids.length === 0) return;
+
+        const userId = this.currentUser.uid;
+
+        try {
+            const batch = this.imports.writeBatch(this.db);
+            ids.forEach((id) => {
+                const itemRef = this.imports.doc(this.db, `users/${userId}/shoppingItems/${id}`);
+                batch.delete(itemRef);
+            });
+            await batch.commit();
+        } catch (error) {
+            console.error('❌ Error deleting shopping items:', error);
+        }
+    }
+
+    async updateShoppingItemsFields(idsWithFields) {
+        if (!this.currentUser || idsWithFields.length === 0) return;
+
+        const userId = this.currentUser.uid;
+
+        try {
+            const batch = this.imports.writeBatch(this.db);
+            idsWithFields.forEach(({ id, fields }) => {
+                const itemRef = this.imports.doc(this.db, `users/${userId}/shoppingItems/${id}`);
+                batch.update(itemRef, { ...fields, updatedAt: new Date().toISOString() });
+            });
+            await batch.commit();
+        } catch (error) {
+            console.error('❌ Error updating shopping items:', error);
+        }
+    }
+
     async saveSelectedMeals(selectedMeals) {
         if (!this.currentUser) return;
 
@@ -418,6 +555,96 @@ class FirebaseService {
         }
     }
 
+    // Item-level product operations (one document per product)
+    async saveProduct(product) {
+        if (!this.currentUser) return;
+
+        const userId = this.currentUser.uid;
+        const productRef = this.imports.doc(this.db, `users/${userId}/masterProducts/${product.id}`);
+
+        try {
+            await this.imports.setDoc(productRef, {
+                name: product.name,
+                aisle: product.aisle,
+                createdAt: product.createdAt || new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            });
+        } catch (error) {
+            console.error('❌ Error saving product:', error);
+        }
+    }
+
+    async deleteProduct(id) {
+        if (!this.currentUser) return;
+
+        const userId = this.currentUser.uid;
+        const productRef = this.imports.doc(this.db, `users/${userId}/masterProducts/${id}`);
+
+        try {
+            await this.imports.deleteDoc(productRef);
+        } catch (error) {
+            console.error('❌ Error deleting product:', error);
+        }
+    }
+
+    // Replace the entire product catalog atomically (used by "Replace all" JSON import)
+    async replaceProducts(products) {
+        if (!this.currentUser) return;
+
+        const userId = this.currentUser.uid;
+
+        try {
+            const existingRef = this.imports.collection(this.db, `users/${userId}/masterProducts`);
+            const existingSnapshot = await new Promise((resolve, reject) => {
+                const unsubscribe = this.imports.onSnapshot(existingRef, (snapshot) => {
+                    unsubscribe();
+                    resolve(snapshot);
+                }, reject);
+            });
+
+            const batch = this.imports.writeBatch(this.db);
+            existingSnapshot.forEach((doc) => {
+                batch.delete(doc.ref);
+            });
+            products.forEach((product) => {
+                const productRef = this.imports.doc(this.db, `users/${userId}/masterProducts/${product.id}`);
+                batch.set(productRef, {
+                    name: product.name,
+                    aisle: product.aisle,
+                    createdAt: product.createdAt || new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                });
+            });
+            await batch.commit();
+            console.log('✅ Product catalog replaced');
+        } catch (error) {
+            console.error('❌ Error replacing product catalog:', error);
+        }
+    }
+
+    // Bulk product writes (JSON import, aisle rename cascade) as one atomic batch
+    async saveProducts(products) {
+        if (!this.currentUser || products.length === 0) return;
+
+        const userId = this.currentUser.uid;
+
+        try {
+            const batch = this.imports.writeBatch(this.db);
+            products.forEach((product) => {
+                const productRef = this.imports.doc(this.db, `users/${userId}/masterProducts/${product.id}`);
+                batch.set(productRef, {
+                    name: product.name,
+                    aisle: product.aisle,
+                    createdAt: product.createdAt || new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                });
+            });
+            await batch.commit();
+        } catch (error) {
+            console.error('❌ Error saving products:', error);
+        }
+    }
+
     async saveAisles(aisles) {
         if (!this.currentUser) return;
 
@@ -454,6 +681,72 @@ class FirebaseService {
             return { success: true };
         } catch (error) {
             console.error('❌ Migration error:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    // One-time migration: move shoppingList/masterProductList from single
+    // array-documents to one-document-per-item subcollections. Safe to run
+    // multiple times (overwrites by id); does NOT delete the old documents -
+    // remove users/{uid}/data/shopping and users/{uid}/data/masterProductList
+    // manually once the new subcollections are confirmed working.
+    async migrateToSubcollections() {
+        if (!this.currentUser) return { success: false, error: 'Not signed in' };
+
+        const userId = this.currentUser.uid;
+        const result = { shoppingItems: 0, products: 0 };
+
+        try {
+            const shoppingRef = this.imports.doc(this.db, `users/${userId}/data/shopping`);
+            const shoppingSnap = await this.imports.getDoc(shoppingRef);
+            if (shoppingSnap.exists()) {
+                const items = shoppingSnap.data().items || [];
+                const withIds = items.map((item, index) => ({
+                    ...item,
+                    id: item.id || `item-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 8)}`
+                }));
+                if (withIds.length > 0) {
+                    const batch = this.imports.writeBatch(this.db);
+                    withIds.forEach((item) => {
+                        const itemRef = this.imports.doc(this.db, `users/${userId}/shoppingItems/${item.id}`);
+                        batch.set(itemRef, {
+                            text: item.text,
+                            category: item.category,
+                            checked: !!item.checked,
+                            source: item.source,
+                            count: item.count || 1,
+                            updatedAt: new Date().toISOString()
+                        });
+                    });
+                    await batch.commit();
+                    result.shoppingItems = withIds.length;
+                }
+            }
+
+            const productsRef = this.imports.doc(this.db, `users/${userId}/data/masterProductList`);
+            const productsSnap = await this.imports.getDoc(productsRef);
+            if (productsSnap.exists()) {
+                const products = productsSnap.data().products || [];
+                if (products.length > 0) {
+                    const batch = this.imports.writeBatch(this.db);
+                    products.forEach((product) => {
+                        const productRef = this.imports.doc(this.db, `users/${userId}/masterProducts/${product.id}`);
+                        batch.set(productRef, {
+                            name: product.name,
+                            aisle: product.aisle,
+                            createdAt: product.createdAt || new Date().toISOString(),
+                            updatedAt: new Date().toISOString()
+                        });
+                    });
+                    await batch.commit();
+                    result.products = products.length;
+                }
+            }
+
+            console.log(`✅ Subcollection migration complete: ${result.shoppingItems} shopping items, ${result.products} products`);
+            return { success: true, ...result };
+        } catch (error) {
+            console.error('❌ Subcollection migration error:', error);
             return { success: false, error: error.message };
         }
     }

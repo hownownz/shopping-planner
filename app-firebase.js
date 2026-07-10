@@ -425,6 +425,10 @@ class DataStore {
         };
         this.masterProductList.push(product);
         await this.save('masterProductList', this.masterProductList);
+
+        if (this.syncEnabled) {
+            await firebaseService.saveProduct(product);
+        }
     }
 
     async editProduct(id, name, aisle = null) {
@@ -436,12 +440,20 @@ class DataStore {
             }
             this.masterProductList[index].updatedAt = new Date().toISOString();
             await this.save('masterProductList', this.masterProductList);
+
+            if (this.syncEnabled) {
+                await firebaseService.saveProduct(this.masterProductList[index]);
+            }
         }
     }
 
     async deleteProduct(id) {
         this.masterProductList = this.masterProductList.filter(p => p.id !== id);
         await this.save('masterProductList', this.masterProductList);
+
+        if (this.syncEnabled) {
+            await firebaseService.deleteProduct(id);
+        }
     }
 
     getProductsByAisle(aisle) {
@@ -543,16 +555,22 @@ class DataStore {
         this.aisles[index] = trimmed;
 
         // Update all products that use this aisle
+        const affectedProducts = [];
         this.masterProductList.forEach(product => {
             if (product.aisle === oldName) {
                 product.aisle = trimmed;
                 product.updatedAt = new Date().toISOString();
+                affectedProducts.push(product);
             }
         });
 
         // Save both
         await this.save('aisles', this.aisles);
         await this.save('masterProductList', this.masterProductList);
+
+        if (this.syncEnabled && affectedProducts.length > 0) {
+            await firebaseService.saveProducts(affectedProducts);
+        }
     }
 
     async deleteAisle(aisleName) {
@@ -664,6 +682,7 @@ class DataStore {
                     const category = this.findCategoryFromMasterProducts(ingredient) || this.guessCategory(ingredient);
 
                     mealIngredients.push({
+                        id: this.generateShoppingItemId(),
                         text: text,
                         category: category,
                         checked: false,
@@ -682,9 +701,16 @@ class DataStore {
         // Combine and deduplicate
         const combinedItems = [...mealIngredients, ...manualItems, ...checkedMealItems];
         const uniqueItems = this.deduplicateItems(combinedItems);
+        uniqueItems.forEach(item => {
+            if (!item.id) item.id = this.generateShoppingItemId();
+        });
 
         this.shoppingList = uniqueItems;
         await this.save('shoppingList', this.shoppingList);
+
+        if (this.syncEnabled) {
+            await firebaseService.replaceShoppingItems(this.shoppingList);
+        }
     }
 
     deduplicateItems(items) {
@@ -818,8 +844,14 @@ class DataStore {
         }));
     }
 
+    generateShoppingItemId() {
+        return `item-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    }
+
     async addManualItem(text, category) {
+        const key = text.trim().toLowerCase();
         const item = {
+            id: this.generateShoppingItemId(),
             text: text.trim(),
             category: category,
             checked: false,
@@ -832,6 +864,13 @@ class DataStore {
         this.trackItemUsage(text.trim());
 
         await this.save('shoppingList', this.shoppingList);
+
+        // Whichever item survived dedup (new or pre-existing with count bumped) is the one that changed
+        const changedItem = this.shoppingList.find(i => i.text.toLowerCase().trim() === key);
+        if (changedItem && !changedItem.id) changedItem.id = this.generateShoppingItemId();
+        if (this.syncEnabled && changedItem) {
+            await firebaseService.saveShoppingItem(changedItem);
+        }
     }
 
     // Check if an item is already in the shopping list
@@ -1069,30 +1108,58 @@ class DataStore {
         const item = this.shoppingList.find(i => i.text.toLowerCase() === text.toLowerCase());
         if (item) {
             item.checked = !item.checked;
+            if (!item.id) item.id = this.generateShoppingItemId();
             await this.save('shoppingList', this.shoppingList);
+
+            if (this.syncEnabled) {
+                await firebaseService.saveShoppingItem(item);
+            }
         }
     }
 
     async removeItem(text) {
+        const removed = this.shoppingList.filter(i => i.text.toLowerCase() === text.toLowerCase());
         this.shoppingList = this.shoppingList.filter(i => i.text.toLowerCase() !== text.toLowerCase());
         await this.save('shoppingList', this.shoppingList);
+
+        if (this.syncEnabled) {
+            const ids = removed.filter(i => i.id).map(i => i.id);
+            if (ids.length > 0) await firebaseService.deleteShoppingItems(ids);
+        }
     }
 
     async uncheckAllItems() {
+        const updates = [];
         this.shoppingList.forEach(item => {
             item.checked = false;
+            if (!item.id) item.id = this.generateShoppingItemId();
+            updates.push({ id: item.id, fields: { checked: false } });
         });
         await this.save('shoppingList', this.shoppingList);
+
+        if (this.syncEnabled && updates.length > 0) {
+            await firebaseService.updateShoppingItemsFields(updates);
+        }
     }
 
     async clearCheckedItems() {
+        const removed = this.shoppingList.filter(i => i.checked);
         this.shoppingList = this.shoppingList.filter(i => !i.checked);
         await this.save('shoppingList', this.shoppingList);
+
+        if (this.syncEnabled) {
+            const ids = removed.filter(i => i.id).map(i => i.id);
+            if (ids.length > 0) await firebaseService.deleteShoppingItems(ids);
+        }
     }
 
     async clearAllItems() {
         this.shoppingList = [];
         await this.save('shoppingList', this.shoppingList);
+
+        if (this.syncEnabled) {
+            await firebaseService.replaceShoppingItems([]);
+        }
     }
 
     // Category methods
@@ -1314,21 +1381,38 @@ class App {
                     // Restore deleted product
                     this.store.masterProductList.push(action.data);
                     await this.store.save('masterProductList', this.store.masterProductList);
+                    if (this.store.syncEnabled) {
+                        await firebaseService.saveProduct(action.data);
+                    }
                     this.renderCategories();
                     break;
 
                 case 'CLEAR_CHECKED':
                     // Restore cleared items
+                    action.data.forEach(item => {
+                        if (!item.id) item.id = this.store.generateShoppingItemId();
+                    });
                     this.store.shoppingList.push(...action.data);
                     await this.store.save('shoppingList', this.store.shoppingList);
+                    if (this.store.syncEnabled) {
+                        for (const item of action.data) {
+                            await firebaseService.saveShoppingItem(item);
+                        }
+                    }
                     this.renderShoppingList();
                     this.renderCategories(); // Update to show items are back in list
                     break;
 
                 case 'CLEAR_ALL':
                     // Restore all items
+                    action.data.forEach(item => {
+                        if (!item.id) item.id = this.store.generateShoppingItemId();
+                    });
                     this.store.shoppingList = action.data;
                     await this.store.save('shoppingList', this.store.shoppingList);
+                    if (this.store.syncEnabled) {
+                        await firebaseService.replaceShoppingItems(this.store.shoppingList);
+                    }
                     this.renderShoppingList();
                     this.renderCategories(); // Update to show items are back in list
                     break;
@@ -2993,9 +3077,13 @@ class App {
                     `Cancel = Merge (keep existing, add new)`
                 );
 
+                let addedProducts = [];
+                let didReplace = false;
+
                 if (action) {
                     // Replace all
                     this.store.masterProductList = newProducts;
+                    didReplace = true;
                 } else {
                     // Merge - add products that don't already exist (by name + aisle)
                     const existingKeys = new Set(
@@ -3006,17 +3094,27 @@ class App {
                         const key = `${product.name.toLowerCase()}|${product.aisle}`;
                         if (!existingKeys.has(key)) {
                             // Generate new ID and timestamps for imported products
-                            this.store.masterProductList.push({
+                            const newProduct = {
                                 ...product,
                                 id: `product-${Date.now()}-${Math.random()}`,
                                 createdAt: product.createdAt || new Date().toISOString(),
                                 updatedAt: new Date().toISOString()
-                            });
+                            };
+                            this.store.masterProductList.push(newProduct);
+                            addedProducts.push(newProduct);
                         }
                     });
                 }
 
                 await this.store.save('masterProductList', this.store.masterProductList);
+
+                if (this.store.syncEnabled) {
+                    if (didReplace) {
+                        await firebaseService.replaceProducts(this.store.masterProductList);
+                    } else if (addedProducts.length > 0) {
+                        await firebaseService.saveProducts(addedProducts);
+                    }
+                }
 
                 this.renderCategories();
 

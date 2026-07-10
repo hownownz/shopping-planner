@@ -24,8 +24,8 @@
                 <span class="nav-label">Shopping</span>
             </button>
             <button class="nav-btn" data-view="categories">
-                <span class="nav-icon">⚡</span>
-                <span class="nav-label">Quick Add</span>
+                <span class="nav-icon">🛍️</span>
+                <span class="nav-label">Products</span>
             </button>
             <button class="nav-btn" data-view="database">
                 <span class="nav-icon">📚</span>
@@ -82,12 +82,11 @@
         <!-- Categories View -->
         <div class="view" id="categories-view">
             <div class="view-header">
-                <h1>Quick Add</h1>
+                <h1>Products</h1>
                 <div class="header-actions">
                     <button class="btn-secondary" id="export-master-products-btn">Export Products</button>
                     <button class="btn-secondary" id="import-master-products-btn">Import Products</button>
-                    <button class="btn-secondary" id="add-product-btn">+ Add Product</button>
-                    <button class="btn-primary" id="manage-categories-btn">+ Add Group</button>
+                    <button class="btn-primary" id="add-product-btn">+ Add Product</button>
                     <button class="icon-btn dark-mode-toggle" title="Toggle dark mode">
                         <span class="toggle-icon">🌙</span>
                     </button>
@@ -165,41 +164,6 @@
     </div>
 
     <!-- Modal for managing categories -->
-    <div class="modal" id="category-modal">
-        <div class="modal-content" style="max-width: 800px;">
-            <div class="modal-header">
-                <h2 id="category-modal-title">Add Quick-Add Group</h2>
-                <button class="close-btn" id="close-category-modal">&times;</button>
-            </div>
-            <div class="modal-body">
-                <label>Category Name</label>
-                <input type="text" id="category-name-input" placeholder="e.g., Kids Food">
-
-                <div style="margin-top: 20px;">
-                    <label>Select Products from Master List</label>
-                    <input type="text" id="category-product-search-input" placeholder="Search products..." style="margin-bottom: 10px;">
-
-                    <div id="category-product-selection-area" style="max-height: 400px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; padding: 12px; background: var(--surface);">
-                        <!-- Populated by JavaScript -->
-                    </div>
-                </div>
-
-                <div style="margin-top: 15px;">
-                    <label style="font-weight: 600;">Selected Products (<span id="category-selected-count">0</span>)</label>
-                    <div id="category-selected-products-list" style="min-height: 60px; max-height: 120px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; padding: 10px; background: #fff; margin-top: 8px;">
-                        <p style="color: var(--text-secondary); text-align: center; padding: 20px 0;">No products selected yet</p>
-                    </div>
-                </div>
-
-                <div class="modal-actions" style="margin-top: 20px;">
-                    <button class="btn-secondary" id="cancel-category-btn">Cancel</button>
-                    <button class="btn-danger" id="delete-category-btn" style="display: none;">Delete</button>
-                    <button class="btn-primary" id="save-category-btn">Save</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Modal for managing ingredient categories -->
     <div class="modal" id="ingredients-modal">
         <div class="modal-content" style="max-width: 700px;">
@@ -382,6 +346,6 @@
         </div>
     </div>
 
-    <script type="module" src="app-firebase.js?v=25"></script>
+    <script type="module" src="app-firebase.js?v=26"></script>
 </body>
 </html>

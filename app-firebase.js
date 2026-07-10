@@ -888,20 +888,6 @@ class DataStore {
         this.save('itemUsageCount', this.itemUsageCount);
     }
 
-    getFrequentlyUsedItems(limit = 20) {
-        // Convert object to array and sort by count
-        const items = Object.entries(this.itemUsageCount)
-            .map(([text, count]) => ({
-                text: text,
-                count: count,
-                category: this.guessCategory(text)
-            }))
-            .sort((a, b) => b.count - a.count)
-            .slice(0, limit);
-
-        return items;
-    }
-
     getAllKnownItems() {
         // Get all unique items from various sources
         const items = new Set();
@@ -1269,7 +1255,6 @@ class App {
         this.store = new DataStore();
         this.currentView = 'meals';
         this.editingMealId = null;
-        this.editingCategoryId = null;
         this.editingProductId = null;
         this.isReady = false;
         this.collapsedCategories = new Set(); // Track which shopping categories are collapsed
@@ -1283,8 +1268,6 @@ class App {
         this.selectedIngredients = new Map(); // Track selected ingredients for meal creation: productName -> quantity
         this.ingredientSearchTerm = ''; // Track search term for ingredient selection
         this.expandedIngredientAisles = new Set(); // Track which ingredient aisles are expanded in meal modal
-        this.selectedCategoryProducts = new Set(); // Track selected products for category creation
-        this.categoryProductSearchTerm = ''; // Track search term for category product selection
     }
 
     async initialize() {
@@ -1337,20 +1320,6 @@ class App {
         document.querySelectorAll('.toggle-icon').forEach(icon => {
             icon.textContent = isDarkMode ? '☀️' : '🌙';
         });
-    }
-
-    getRecentProducts(limit = 15) {
-        // Get products sorted by usage count, return top N
-        const productsWithCount = this.store.masterProductList
-            .map(product => ({
-                ...product,
-                count: this.store.itemUsageCount[product.name.toLowerCase()] || 0
-            }))
-            .filter(p => p.count > 0) // Only products that have been used
-            .sort((a, b) => b.count - a.count) // Sort by count descending
-            .slice(0, limit);
-
-        return productsWithCount;
     }
 
     // Undo system
@@ -1481,19 +1450,6 @@ class App {
         document.getElementById('quick-add-product-btn').addEventListener('click', () => this.quickAddProduct());
         document.getElementById('quick-add-product-input').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') this.quickAddProduct();
-        });
-
-        // Category modal
-        document.getElementById('manage-categories-btn').addEventListener('click', () => this.openCategoryModal());
-        document.getElementById('close-category-modal').addEventListener('click', () => this.closeCategoryModal());
-        document.getElementById('cancel-category-btn').addEventListener('click', () => this.closeCategoryModal());
-        document.getElementById('save-category-btn').addEventListener('click', () => this.saveCategory());
-        document.getElementById('delete-category-btn').addEventListener('click', () => this.deleteCategory());
-
-        // Category product selection search
-        document.getElementById('category-product-search-input').addEventListener('input', (e) => {
-            this.categoryProductSearchTerm = e.target.value;
-            this.renderCategoryProductSelection();
         });
 
         // Product modal
@@ -1826,65 +1782,7 @@ class App {
 
         let html = '';
 
-        // Quick-Add Groups Section
-        if (this.store.categories.length > 0) {
-            html += '<div class="section-header">📦 Quick-Add Groups</div>';
-            html += '<div class="categories-grid">';
-            html += this.store.categories.map(category => `
-            <div class="category-card">
-                <div class="category-card-main" data-id="${category.id}">
-                    <div class="category-icon">${category.icon}</div>
-                    <div class="category-info">
-                        <div class="category-name">${category.name}</div>
-                        <div class="category-count">${category.items.length} items</div>
-                    </div>
-                </div>
-                <div class="category-actions">
-                    <button class="icon-btn edit-category-btn" data-id="${category.id}" title="Edit">✏️</button>
-                    <button class="icon-btn delete-category-btn" data-id="${category.id}" title="Delete">🗑️</button>
-                </div>
-            </div>
-        `).join('');
-            html += '</div>'; // Close categories-grid
-        } else {
-            html += `
-                <div class="empty-state">
-                    <div class="empty-state-icon">⚡</div>
-                    <div class="empty-state-text">No quick-add groups yet. Click "+ Add Group" to create one!</div>
-                </div>
-            `;
-        }
-
-        // Frequently Used Section
-        const frequentItems = this.store.getFrequentlyUsedItems(18);
-        if (frequentItems.length > 0) {
-            html += '<div class="section-header" style="margin-top: 24px;">⭐ Frequently Used</div>';
-            html += '<div class="frequent-items-grid">';
-            html += frequentItems.map(item => `
-                <div class="frequent-item" data-text="${item.text}" data-category="${item.category}">
-                    <span class="frequent-item-text">${item.text}</span>
-                    <span class="frequent-item-count">×${item.count}</span>
-                </div>
-            `).join('');
-            html += '</div>';
-        }
-
-        // Recently Used Products Section
-        const recentProducts = this.getRecentProducts(15);
-        if (recentProducts.length > 0) {
-            html += '<div class="section-header" style="margin-top: 24px;">⏱️ Recently Used</div>';
-            html += '<div class="recent-products-list">';
-            html += recentProducts.map(product => `
-                <button class="recent-product-item" data-id="${product.id}" data-name="${product.name}" data-aisle="${product.aisle}">
-                    <span class="recent-product-name">${product.name}</span>
-                    <span class="recent-product-count">×${product.count}</span>
-                </button>
-            `).join('');
-            html += '</div>';
-        }
-
         // All Products Section
-        html += '<div class="section-header" style="margin-top: 24px;">🛍️ All Products</div>';
         html += '<div style="display: flex; gap: 10px; margin-bottom: 16px;">';
         html += '<div class="search-box" style="flex: 1; margin: 0;">';
         html += `<input type="text" id="product-search" placeholder="Search products..." value="${this.productSearchTerm}">`;
@@ -1985,61 +1883,6 @@ class App {
 
         container.innerHTML = html;
 
-        // Add click listeners for adding items to shopping list from groups
-        container.querySelectorAll('.category-card-main').forEach(card => {
-            card.addEventListener('click', async () => {
-                const id = card.dataset.id;
-                await this.store.addCategoryItems(id);
-                this.renderShoppingList();
-                this.renderCategories(); // Update to show items are now in list
-                // Show feedback
-                card.style.transform = 'scale(0.95)';
-                setTimeout(() => {
-                    card.style.transform = '';
-                }, 200);
-            });
-        });
-
-        // Add edit listeners
-        container.querySelectorAll('.edit-category-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const id = btn.dataset.id;
-                this.openCategoryModal(id);
-            });
-        });
-
-        // Add delete listeners
-        container.querySelectorAll('.delete-category-btn').forEach(btn => {
-            btn.addEventListener('click', async (e) => {
-                e.stopPropagation();
-                const id = btn.dataset.id;
-                const category = this.store.categories.find(c => c.id === id);
-                if (confirm(`Delete "${category.name}"? This cannot be undone.`)) {
-                    await this.store.deleteCategory(id);
-                    this.renderCategories();
-                }
-            });
-        });
-
-        // Add click listeners for frequent items
-        container.querySelectorAll('.frequent-item').forEach(item => {
-            item.addEventListener('click', async () => {
-                const text = item.dataset.text;
-                const category = item.dataset.category;
-                await this.store.addManualItem(text, category);
-                this.renderShoppingList();
-                this.renderCategories(); // Update to show item is now in list
-                // Show feedback
-                item.style.transform = 'scale(0.95)';
-                item.style.opacity = '0.7';
-                setTimeout(() => {
-                    item.style.transform = '';
-                    item.style.opacity = '';
-                }, 200);
-            });
-        });
-
         // Product sort mode listener
         const productSortMode = document.getElementById('product-sort-mode');
         if (productSortMode) {
@@ -2129,23 +1972,6 @@ class App {
                     this.collapsedAisles.add(aisle);
                 }
                 this.renderCategories();
-            });
-        });
-
-        // Recent products - click to add
-        container.querySelectorAll('.recent-product-item').forEach(btn => {
-            btn.addEventListener('click', async (e) => {
-                e.stopPropagation();
-                const name = btn.dataset.name;
-                const aisle = btn.dataset.aisle;
-                await this.store.addManualItem(name, aisle);
-                this.renderShoppingList();
-                this.renderCategories(); // Update to show item is now in list
-                // Show feedback
-                btn.style.transform = 'scale(1.05)';
-                setTimeout(() => {
-                    btn.style.transform = '';
-                }, 200);
             });
         });
 
@@ -2404,216 +2230,6 @@ class App {
 
         this.closeMealModal();
         this.render();
-    }
-
-    openCategoryModal(categoryId = null) {
-        this.editingCategoryId = categoryId;
-        const modal = document.getElementById('category-modal');
-        const title = document.getElementById('category-modal-title');
-        const nameInput = document.getElementById('category-name-input');
-        const deleteBtn = document.getElementById('delete-category-btn');
-
-        // Reset selection state
-        this.selectedCategoryProducts.clear();
-        this.categoryProductSearchTerm = '';
-        document.getElementById('category-product-search-input').value = '';
-
-        if (categoryId) {
-            const category = this.store.categories.find(c => c.id === categoryId);
-            title.textContent = 'Edit Quick-Add Group';
-            nameInput.value = category.name;
-
-            // Pre-select products that are in this category
-            category.items.forEach(item => {
-                this.selectedCategoryProducts.add(item);
-            });
-
-            deleteBtn.style.display = 'block';
-        } else {
-            title.textContent = 'Add Quick-Add Group';
-            nameInput.value = '';
-            deleteBtn.style.display = 'none';
-        }
-
-        modal.classList.add('active');
-        this.renderCategoryProductSelection();
-        this.updateCategorySelectedProductsList();
-        nameInput.focus();
-    }
-
-    closeCategoryModal() {
-        document.getElementById('category-modal').classList.remove('active');
-        this.editingCategoryId = null;
-        this.selectedCategoryProducts.clear();
-        this.categoryProductSearchTerm = '';
-    }
-
-    renderCategoryProductSelection() {
-        const container = document.getElementById('category-product-selection-area');
-        const searchTerm = this.categoryProductSearchTerm.toLowerCase();
-
-        // Get all aisles and products
-        const aisles = this.store.getAllAisles();
-
-        let html = '';
-
-        aisles.forEach((aisle, aisleIndex) => {
-            const products = this.store.getProductsByAisle(aisle);
-
-            // Filter products by search term
-            const filteredProducts = searchTerm
-                ? products.filter(p => p.name.toLowerCase().includes(searchTerm))
-                : products;
-
-            if (filteredProducts.length === 0) return; // Skip empty aisles
-
-            // When searching, expand all; otherwise start collapsed
-            const isExpanded = searchTerm !== '';
-            const aisleId = `category-aisle-${aisleIndex}`;
-
-            html += `
-                <div class="category-product-aisle-group" style="margin-bottom: 8px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: white;">
-                    <div class="aisle-header" data-aisle-id="${aisleId}" style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: var(--surface); cursor: pointer; user-select: none; border-bottom: 1px solid var(--border);">
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <span class="aisle-toggle" style="font-size: 12px; transition: transform 0.2s;">${isExpanded ? '▼' : '▶'}</span>
-                            <span style="font-weight: 600; font-size: 14px; color: var(--text-primary);">${aisle}</span>
-                            <span style="font-size: 12px; color: var(--text-secondary);">(${filteredProducts.length})</span>
-                        </div>
-                    </div>
-                    <div class="category-product-list" id="${aisleId}" style="display: ${isExpanded ? 'block' : 'none'}; padding: 8px;">
-                        ${filteredProducts.map(product => {
-                            const isSelected = this.selectedCategoryProducts.has(product.name);
-
-                            return `
-                                <div class="category-product-item" style="display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 10px; padding: 8px; border-radius: 4px; ${isSelected ? 'background: #e0f2fe;' : ''} margin-bottom: 2px;">
-                                    <input
-                                        type="checkbox"
-                                        class="category-product-checkbox"
-                                        data-product="${product.name}"
-                                        ${isSelected ? 'checked' : ''}
-                                        style="cursor: pointer; margin: 0; width: 16px; height: 16px;"
-                                    />
-                                    <label style="cursor: pointer; font-size: 14px; margin: 0;" data-product="${product.name}">
-                                        ${product.name}
-                                    </label>
-                                </div>
-                            `;
-                        }).join('')}
-                    </div>
-                </div>
-            `;
-        });
-
-        if (!html) {
-            html = '<p style="text-align: center; color: var(--text-secondary); padding: 20px;">No products found</p>';
-        }
-
-        container.innerHTML = html;
-
-        // Attach toggle listeners for aisle headers
-        container.querySelectorAll('.aisle-header').forEach(header => {
-            header.addEventListener('click', (e) => {
-                const aisleId = e.currentTarget.dataset.aisleId;
-                const productList = document.getElementById(aisleId);
-                const toggle = e.currentTarget.querySelector('.aisle-toggle');
-
-                if (productList.style.display === 'none') {
-                    productList.style.display = 'block';
-                    toggle.textContent = '▼';
-                } else {
-                    productList.style.display = 'none';
-                    toggle.textContent = '▶';
-                }
-            });
-        });
-
-        // Attach event listeners for checkboxes
-        container.querySelectorAll('.category-product-checkbox').forEach(checkbox => {
-            checkbox.addEventListener('change', (e) => {
-                const productName = e.target.dataset.product;
-                if (e.target.checked) {
-                    this.selectedCategoryProducts.add(productName);
-                } else {
-                    this.selectedCategoryProducts.delete(productName);
-                }
-                this.updateCategorySelectedProductsList();
-                this.renderCategoryProductSelection(); // Re-render to update highlighting
-            });
-        });
-
-        // Also allow clicking labels to toggle
-        container.querySelectorAll('label[data-product]').forEach(label => {
-            label.addEventListener('click', (e) => {
-                const productName = e.target.dataset.product;
-                const checkbox = container.querySelector(`input[data-product="${productName}"]`);
-                checkbox.checked = !checkbox.checked;
-                checkbox.dispatchEvent(new Event('change'));
-            });
-        });
-    }
-
-    updateCategorySelectedProductsList() {
-        const container = document.getElementById('category-selected-products-list');
-        const countSpan = document.getElementById('category-selected-count');
-        const products = Array.from(this.selectedCategoryProducts).sort();
-
-        countSpan.textContent = products.length;
-
-        if (products.length === 0) {
-            container.innerHTML = '<p style="color: var(--text-secondary); text-align: center; padding: 20px 0;">No products selected yet</p>';
-            return;
-        }
-
-        container.innerHTML = products.map(productName => `
-            <span style="display: inline-block; background: #e0f2fe; color: #0369a1; padding: 4px 8px; border-radius: 4px; margin: 2px; font-size: 13px;">
-                ${productName}
-                <button onclick="app.removeCategoryProduct('${productName.replace(/'/g, "\\'")}'); event.stopPropagation();" style="border: none; background: none; color: #0369a1; cursor: pointer; margin-left: 4px; font-weight: bold;">×</button>
-            </span>
-        `).join('');
-    }
-
-    removeCategoryProduct(productName) {
-        this.selectedCategoryProducts.delete(productName);
-        this.updateCategorySelectedProductsList();
-        this.renderCategoryProductSelection();
-    }
-
-    async saveCategory() {
-        const name = document.getElementById('category-name-input').value.trim();
-        const items = Array.from(this.selectedCategoryProducts);
-
-        if (!name) {
-            alert('Please enter a category name');
-            return;
-        }
-
-        if (items.length === 0) {
-            alert('Please select at least one product');
-            return;
-        }
-
-        const category = {
-            name,
-            items,
-            icon: '📦' // Default icon, could make this customizable
-        };
-
-        if (this.editingCategoryId) {
-            await this.store.updateCategory(this.editingCategoryId, category);
-        } else {
-            await this.store.addCategory(category);
-        }
-
-        this.closeCategoryModal();
-        this.renderCategories();
-    }
-
-    async deleteCategory() {
-        if (confirm('Are you sure you want to delete this category?')) {
-            await this.store.deleteCategory(this.editingCategoryId);
-            this.closeCategoryModal();
-            this.renderCategories();
-        }
     }
 
     openProductModal() {
@@ -3136,8 +2752,7 @@ class App {
     async resetStatistics() {
         const message =
             'This will reset ALL usage statistics:\n\n' +
-            '• Item usage counts (for frequency sorting)\n' +
-            '• Recently Used section (top 15 products)\n\n' +
+            '• Item usage counts (for frequency sorting)\n\n' +
             'Your products and meals will NOT be affected.\n\n' +
             'Continue?';
 

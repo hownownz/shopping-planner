@@ -1290,6 +1290,7 @@ class App {
         this.expandedIngredientAisles = new Set(); // Track which ingredient aisles are expanded in meal modal
         this.assigningDay = null; // Which day's meal picker panel is open, or null
         this.mealPickerSearchTerm = ''; // Search term inside the meal picker panel
+        this.mealPickerSearchHadFocus = false; // Track if meal picker search box has/had focus
         this.mealBrowseSearchTerm = ''; // Search term for the read-only all-meals browse list
     }
 
@@ -1738,9 +1739,28 @@ class App {
             this.renderMealPickerPanel();
         });
 
-        document.getElementById('meal-picker-search').addEventListener('input', (e) => {
+        const pickerSearchInput = document.getElementById('meal-picker-search');
+
+        // Restore focus/cursor position if the search box had focus before this re-render
+        if (this.mealPickerSearchHadFocus) {
+            pickerSearchInput.focus();
+            const length = pickerSearchInput.value.length;
+            pickerSearchInput.setSelectionRange(length, length);
+            this.mealPickerSearchHadFocus = false;
+        }
+
+        pickerSearchInput.addEventListener('input', (e) => {
             this.mealPickerSearchTerm = e.target.value;
+            this.mealPickerSearchHadFocus = true;
             this.renderMealPickerPanel();
+        });
+
+        pickerSearchInput.addEventListener('focus', () => {
+            this.mealPickerSearchHadFocus = true;
+        });
+
+        pickerSearchInput.addEventListener('blur', () => {
+            this.mealPickerSearchHadFocus = false;
         });
 
         panel.querySelectorAll('.meal-item').forEach(item => {
